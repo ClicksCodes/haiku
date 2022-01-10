@@ -1,0 +1,26 @@
+{
+  "name": "jshaiku",
+  "version": "1.0.0",
+  "description": "JSHaiku discord client",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/ClicksMinutePer/haiku.git"
+  },
+  "keywords": [
+    "haiku",
+    "jshaiku",
+    "discord",
+    "discordjs",
+    "client"
+  ],
+  "author": "ClicksMinutePer",
+  "license": "AGPL-3.0",
+  "bugs": {
+    "url": "https://github.com/ClicksMinutePer/haiku/issues"
+  },
+  "homepage": "https://github.com/ClicksMinutePer/haiku#readme"
+}
