@@ -1,16 +1,13 @@
-import {Client, Collection, Interaction} from "discord.js";
+import {Client, Collection, Interaction, ClientOptions, ClientEvents} from "discord.js";
 import {SlashCommandBuilder} from "@discordjs/builders";
-import {schedule, ScheduledTask} from "node-cron";
 
 class HaikuClient extends Client {
 	commands: Collection<string, {command: SlashCommandBuilder, default: (interaction: Interaction) => Promise<any>}>;
-	tasksToRun: ScheduledTask[];
 	ready = false;
 
-	constructor(ClientOptions) {
+	constructor(ClientOptions: ClientOptions) {
 		super(ClientOptions);
 		this.commands = new Collection();
-		this.tasksToRun = [];
 
 		this.on("ready", () => {
 			this.ready = true;
@@ -18,8 +15,6 @@ class HaikuClient extends Client {
 			this._log(`Logged in as ${this.user.tag}`);
 			this._log(`${this.guilds.cache.size} guilds`);
 			this._log(`-- Here we go! --`);
-			this.tasksToRun.forEach(task => task.start());
-			this.tasksToRun = [];
 		});
 
 		this.on("interactionCreate", async (interaction) => {
@@ -62,26 +57,6 @@ class HaikuClient extends Client {
 		return this;
 	}
 
-	registerTask(time: string | null | undefined, callback: (client: HaikuClient) => Promise<any>) : HaikuClient {
-		if (callback == undefined) return this;
-
-		if (time === null || time === undefined) {
-			callback(this).then();
-		} else {
-			let task = schedule(time, async () => {
-				this._log(`Running scheduled task (${time})`);
-				try {
-					await callback(this);
-				} catch (error) {
-					console.error(error);
-				}
-			}, {scheduled: this.ready, timezone: "UTC"});
-
-			if (!this.ready) this.tasksToRun.push(task);
-		}
-
-		return this;
-	}
 }
 
 export default HaikuClient;
