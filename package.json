@@ -1,8 +1,9 @@
 {
-  "name": "jshaiku",
+  "name": "@clicksminuteper/jshaiku",
   "version": "1.0.0",
   "description": "JSHaiku discord client",
   "main": "index.js",
+  "access": "public",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
