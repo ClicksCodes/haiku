@@ -1,4 +1,4 @@
-
+type DEFAULT_COMMANDS = "SENRYU";
 
 export interface HaikuConfig {
     token: string;
@@ -7,4 +7,5 @@ export interface HaikuConfig {
     devtoken?: string;
     devguild?: string;
     dev?: boolean;
+    defaultCommands?: DEFAULT_COMMANDS[];
 }

@@ -1,29 +1,34 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder } from "@discordjs/builders";
-import { Client, CommandInteraction, UserResolvable } from "discord.js";
+import { UserResolvable } from "discord.js";
 import HaikuClient from "../client";
-
+import { HaikuCommandInteraction } from "../interfaces/HaikuCommandInteraction";
 
 export class Senryu {
-    public client: Client;
+    public client: HaikuClient;
 
-    constructor(client: Client) {
+    constructor(client: HaikuClient) {
         this.client = client;
     }
 
     //TODO: Make this work like jsk py
-    async js(interaction: CommandInteraction) {
-        return "";
+    async js(interaction: HaikuCommandInteraction) {
+        return;
     }
 
     //TODO: Make this work like jsk sh
-    async shell(interaction: CommandInteraction) {
-        return "";
+    async shell(interaction: HaikuCommandInteraction) {
+        return;
     }
 
 
-    async su(interaction:CommandInteraction, user: UserResolvable, command: string) {
-        let u = this.client.users.fetch(user)
-        return "";
+    async su(interaction:HaikuCommandInteraction, user: UserResolvable, command: string) {
+        let u = await this.client.users.fetch(user)
+        let cmd = this.client.commands.get(command);
+        interaction.user = u;
+        interaction.member = await interaction.guild.members.fetch(user);
+        interaction.memberPermissions = interaction.member.permissions;
+        cmd.default(interaction)
+        return;
     }
 
 }
@@ -50,7 +55,7 @@ export const data = new SlashCommandBuilder()
             .addStringOption(option => option.setName('command').setDescription('The command to run'))
     )
 
-export const execute = async (interaction: CommandInteraction) => {
+export const execute = async (interaction: HaikuCommandInteraction) => {
     const senryu = new Senryu(interaction.client);
     
     switch(interaction.options.getSubcommand()) {
@@ -63,8 +68,8 @@ export const execute = async (interaction: CommandInteraction) => {
         case "su":
             let suAs = interaction.options.getUser('target');
             let suCommand = interaction.options.getString('command');
-            //desperately need to extend CommandInteraction to use HaikuClient instead of Client
-            if(!interaction.client.commands.includes(suCommand)) return interaction.followUp({ content: 'Command not found', ephemeral: true });
+            //desperately need to extend HaikuCommandInteraction to use HaikuClient instead of Client
+            if(!interaction.client.commands.has(suCommand)) return interaction.followUp({ content: 'Command not found', ephemeral: true });
             await senryu.su(interaction, suAs, suCommand);
             break;
         default:
