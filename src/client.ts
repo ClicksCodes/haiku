@@ -1,6 +1,7 @@
 import {Client, Collection, Interaction, ClientOptions} from "discord.js";
 import {SlashCommandBuilder} from "@discordjs/builders";
 import { HaikuConfig } from "./interfaces/HaikuConfig";
+import chalk from "chalk";
 
 /**
  * @class HaikuClient
@@ -11,6 +12,7 @@ import { HaikuConfig } from "./interfaces/HaikuConfig";
 class HaikuClient extends Client {
 	commands: Collection<string, {command: SlashCommandBuilder, default: (interaction: Interaction) => Promise<any>}>;
 	ready = false;
+	ownerFilter = (id: string) => this.config.owners.includes(id);
 	private config: HaikuConfig;
 
 	/**
@@ -20,8 +22,16 @@ class HaikuClient extends Client {
 		super(ClientOptions);
 		this.commands = new Collection();
 
-		this.config = config;
-
+		if (config) {
+			if(!config.dev) config.dev = false;
+			this.config = config;	
+		} else {
+			this.config = {
+				token: "",
+				dev: false
+			}
+		}
+		
 		this.on("ready", () => {
 			this.ready = true;
 			this._log("-- Haiku Client Ready --");
@@ -46,12 +56,20 @@ class HaikuClient extends Client {
 		});
 	}
 
+	_notice(message: string) {
+		this._log(chalk.blue(message));
+	}
+
 	_log(message: string) {
 		console.log(`[HaikuClient @ ${new Date().toLocaleString()}] : ${message}`);
 	}
 
+	_warn(message: string) {
+		this._log(chalk.yellow(message));
+	}
+
 	_error(message: string) {
-		console.error(`[HaikuClient @ ${new Date().toLocaleString()}] : ${message}`);
+		this._log(chalk.redBright(message));
 	}
 
 	/**
@@ -78,8 +96,21 @@ class HaikuClient extends Client {
 	}
 
 	login(token?: string): Promise<string> {
-		if (token == undefined) token = this.config.dev ? this.config.devtoken : this.config.token;
-		if(!token) throw new Error("No token provided!");
+		if (!token) {
+			this._warn("No token provided, trying config tokens instead");
+			if(this.config.dev) {
+				token = this.config.devtoken;
+				if(!token) this._error("Dev token not provided")
+			} else {
+				token = this.config.token;
+				if(!token) {
+					this._error("Main token not provided")
+					this._notice("Attempting log in with dev token");
+					token = this.config.devtoken;
+					if(!token) throw new Error("No tokens provided");
+				}
+			}
+		}
 		return super.login(token);
 	}
 
