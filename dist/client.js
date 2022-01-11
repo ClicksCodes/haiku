@@ -1,6 +1,6 @@
 import { Client, Collection } from "discord.js";
 import chalk from "chalk";
-import * as SENRYU from "./commands/senryu";
+import * as SENRYU from "./commands/senryu.js";
 /**
  * @class HaikuClient
  * @extends Client
@@ -41,6 +41,7 @@ class HaikuClient extends Client {
             this._log(`Logged in as ${this.user.tag}`);
             this._log(`Serving ${this.guilds.cache.size} guilds`);
             this._log(`-- Here we go! --`);
+            this._log(this.application.owner.toString());
         });
         this.on("interactionCreate", async (interaction) => {
             if (!interaction.isCommand())

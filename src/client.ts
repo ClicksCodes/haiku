@@ -2,7 +2,7 @@ import {Client, Collection, Interaction, ClientOptions, User} from "discord.js";
 import {SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder} from "@discordjs/builders";
 import { HaikuConfig } from "./interfaces/HaikuConfig";
 import chalk from "chalk";
-import * as SENRYU from "./commands/senryu";
+import * as SENRYU from "./commands/senryu.js";
 
 /**
  * @class HaikuClient
@@ -45,6 +45,7 @@ class HaikuClient extends Client {
 			this._log(`Logged in as ${this.user.tag}`);
 			this._log(`Serving ${this.guilds.cache.size} guilds`);
 			this._log(`-- Here we go! --`);
+			this._log(this.application.owner.toString())
 		});
 
 		this.on("interactionCreate", async (interaction) => {
