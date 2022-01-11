@@ -21,15 +21,14 @@ export class HaikuPaginator {
     private embed: MessageEmbed;
     private _descriptionStartEndMemo: {[page: number]: [number, number, boolean]} = {};
 
-    public *[Symbol.iterator]() {
-        let lp = this.page;
+    public* getIterator() {
         this.page = -1;
         while (true) {
             let page = this.next();
-            if (!page) break;
+            if (!page) return page;
+
             yield page;
         }
-        this.page = lp;
     }
 
     /**
@@ -66,33 +65,38 @@ export class HaikuPaginator {
     /**
      * @param page The page to get
      * @description Gets the start and end index of the page
-     * 
      * @returns An array with the start and end index of the page and a bo
      */
     getPageDescriptionStartEnd(page: number): [number, number, boolean] {
+        if(!this.splitOnSpaces) return [page*this.maxDescriptionLength, (page+1)*this.maxDescriptionLength, false];
 
-        console.log(page);
-        console.log(page === 0)
-
-        if (this._descriptionStartEndMemo[page] && this._descriptionStartEndMemo[page + 1]) return this._descriptionStartEndMemo[page];
+        // if (this._descriptionStartEndMemo[page] && this._descriptionStartEndMemo[page + 1]) return this._descriptionStartEndMemo[page];
         let start:number = page === 0 ? 0 : this.getPageDescriptionStartEnd(page - 1)[1];
+
+        console.log(start);
+
         let length: number
         let endOnSpace: boolean = false;
 
-        if(this.description.substring(start, this.maxDescriptionLength + 1).endsWith(" ") || this.description.length <= start + this.maxDescriptionLength + 1) {
-            length = this.description.substring(start,this.maxDescriptionLength).lastIndexOf(' ');
-            if(length === -1) length = this.maxDescriptionLength;
+        if(!this.description.substring(start, this.maxDescriptionLength).endsWith(" ") || this.description.length <= start + this.maxDescriptionLength + 1) {
+            length = this.description.substring(start,this.maxDescriptionLength).lastIndexOf(' ') + 1;
+            if(length === 0) length = this.maxDescriptionLength;
             else endOnSpace = true;
-        } else { 
+        } else {
             length = this.maxDescriptionLength;
+            endOnSpace = true;
         }
-        endOnSpace = true;
-        
-        return [start, start + length, endOnSpace];
+
+        let returnValue:[number,number,boolean] = [start-1, start + length + 1, endOnSpace];
+
+        this._descriptionStartEndMemo[page] = returnValue;
+        return returnValue;
     }
-    
+
     getFields(page: number): field[] {
-        return this.fields.slice(page * this.maxFields, (page + 1) * this.maxFields);
+        if(page*this.maxFields > this.fields.length) return [];
+        let end = Math.min((page + 1) * this.maxFields, this.fields.length);
+        return this.fields.slice(page * this.maxFields, end);
     }
 
     getEmbed(page: number): MessageEmbed {
@@ -100,28 +104,23 @@ export class HaikuPaginator {
         let fields = this.getFields(page);
         let description = this.getPageDescriptionStartEnd(page);
 
-        if(!fields && !description) return null;
+        this.embed.fields = fields;
+        this.embed.description = this.description.substring(description[0], description[1] - (description[2] ? 1 : 0));
+    
+        if (this.embed.fields.length === 0 && this.embed.description === "") return null;
 
-        if (fields) {
-            this.embed.fields = fields;
-        }
-        if (description) {
-            this.embed.description = this.description.substring(description[0], description[1]);
-        }
-        
         return this.embed;
     }
 
     next(): MessageEmbed {
         this.page++;
         let page = this.getEmbed(this.page);
-        if (!page) this.page--;
         return page;
     }
 
     prev(): MessageEmbed {
         this.page--;
-        if (this.page < 0) return this.page = 0 || null;
+        if (this.page < 0) return null;
         return this.getEmbed(this.page);
     }
 
