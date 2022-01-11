@@ -13,6 +13,7 @@ class HaikuClient extends Client {
     constructor(ClientOptions, config) {
         super(ClientOptions);
         this.ready = false;
+        this.ownerFilter = (id) => this.config.owners.includes(id);
         this.commands = new Collection();
         if (config) {
             if (!config.dev)
@@ -20,16 +21,21 @@ class HaikuClient extends Client {
             this.config = config;
         }
         else {
+            this._notice("No config provided, using default config");
             this.config = {
                 token: "",
-                dev: false
+                dev: false,
+                owners: [],
+                devtoken: "",
+                devguild: "",
+                activities: []
             };
         }
         this.on("ready", () => {
             this.ready = true;
             this._log("-- Haiku Client Ready --");
-            this._log(`Logged in as ${this.user.tag}`);
-            this._log(`${this.guilds.cache.size} guilds`);
+            this._notice(`Logged in as ${this.user.tag}`);
+            this._log(`Serving ${this.guilds.cache.size} guilds`);
             this._log(`-- Here we go! --`);
         });
         this.on("interactionCreate", async (interaction) => {
@@ -42,13 +48,13 @@ class HaikuClient extends Client {
                 await command.default(interaction);
             }
             catch (error) {
-                console.error(error);
+                this._error(error);
                 await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
             }
         });
     }
     _notice(message) {
-        this._log(chalk.blue(message));
+        this._log(chalk.blueBright(message));
     }
     _log(message) {
         console.log(`[HaikuClient @ ${new Date().toLocaleString()}] : ${message}`);
@@ -86,8 +92,10 @@ class HaikuClient extends Client {
             this._warn("No token provided, trying config tokens instead");
             if (this.config.dev) {
                 token = this.config.devtoken;
-                if (!token)
+                if (!token) {
                     this._error("Dev token not provided");
+                    return process.exit(1);
+                }
             }
             else {
                 token = this.config.token;

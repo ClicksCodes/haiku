@@ -1,4 +1,4 @@
-import {Client, Collection, Interaction, ClientOptions} from "discord.js";
+import {Client, Collection, Interaction, ClientOptions, User} from "discord.js";
 import {SlashCommandBuilder} from "@discordjs/builders";
 import { HaikuConfig } from "./interfaces/HaikuConfig";
 import chalk from "chalk";
@@ -26,17 +26,22 @@ class HaikuClient extends Client {
 			if(!config.dev) config.dev = false;
 			this.config = config;	
 		} else {
+			this._notice("No config provided, using default config");
 			this.config = {
 				token: "",
-				dev: false
+				dev: false,
+				owners: [],
+				devtoken: "",
+				devguild: "",
+				activities: []
 			}
 		}
-		
+
 		this.on("ready", () => {
 			this.ready = true;
 			this._log("-- Haiku Client Ready --");
 			this._log(`Logged in as ${this.user.tag}`);
-			this._log(`${this.guilds.cache.size} guilds`);
+			this._log(`Serving ${this.guilds.cache.size} guilds`);
 			this._log(`-- Here we go! --`);
 		});
 
@@ -50,14 +55,14 @@ class HaikuClient extends Client {
 			try {
 				await command.default(interaction);
 			} catch (error) {
-				console.error(error);
+				this._error(error);
 				await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true });
 			}
 		});
 	}
 
 	_notice(message: string) {
-		this._log(chalk.blue(message));
+		this._log(chalk.blueBright(message));
 	}
 
 	_log(message: string) {
@@ -95,12 +100,19 @@ class HaikuClient extends Client {
 		return this;
 	}
 
+	/**
+	 * @param token The token to use to login
+	 * @description If no token is provided, it will attempt to use the tokens in the config
+	 */
 	login(token?: string): Promise<string> {
 		if (!token) {
 			this._warn("No token provided, trying config tokens instead");
 			if(this.config.dev) {
 				token = this.config.devtoken;
-				if(!token) this._error("Dev token not provided")
+				if(!token) {
+					this._error("Dev token not provided")
+					return process.exit(1);
+				}
 			} else {
 				token = this.config.token;
 				if(!token) {
