@@ -7,7 +7,7 @@ import * as SENRYU from "./commands/senryu.js";
  * @description This class is for the client
  * @author ClicksMinutePer
  */
-class HaikuClient extends Client {
+export class HaikuClient extends Client {
     /**
      * @param ClientOptions options
      */

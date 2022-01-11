@@ -10,7 +10,7 @@ import * as SENRYU from "./commands/senryu.js";
  * @description This class is for the client
  * @author ClicksMinutePer
  */
-class HaikuClient extends Client {
+export class HaikuClient extends Client {
 	commands: Collection<string, {command: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder, default: (interaction: Interaction) => Promise<any>}>;
 	ready = false;
 	ownerFilter = (id: string) => this.config.owners.includes(id);
