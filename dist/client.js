@@ -34,7 +34,7 @@ class HaikuClient extends Client {
         this.on("ready", () => {
             this.ready = true;
             this._log("-- Haiku Client Ready --");
-            this._notice(`Logged in as ${this.user.tag}`);
+            this._log(`Logged in as ${this.user.tag}`);
             this._log(`Serving ${this.guilds.cache.size} guilds`);
             this._log(`-- Here we go! --`);
         });
@@ -87,6 +87,10 @@ class HaikuClient extends Client {
         });
         return this;
     }
+    /**
+     * @param token The token to use to login
+     * @description If no token is provided, it will attempt to use the tokens in the config
+     */
     login(token) {
         if (!token) {
             this._warn("No token provided, trying config tokens instead");

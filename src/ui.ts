@@ -67,7 +67,8 @@ export class HaikuUI {
         return this;
     }
 
-    setRows(rows: row[]):this {
+    setRows(rows: row[]):this | void {
+        if(rows.length > 3) return this.client._error("You can only have 3 rows");
         this.ui = rows;
         return this;
     }

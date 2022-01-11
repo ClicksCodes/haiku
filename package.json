@@ -5,7 +5,9 @@
   "main": "index.js",
   "access": "public",
   "scripts": {
-    "test": "tsc && node test/index.js"
+    "test": "tsc && node test/index.js",
+    "build": "tsc",
+    "github": "tsc && git add . && git commit -am 'update' && git push"
   },
   "repository": {
     "type": "git",
