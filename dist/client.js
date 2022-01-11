@@ -1,5 +1,6 @@
 import { Client, Collection } from "discord.js";
 import chalk from "chalk";
+import * as SENRYU from "./commands/senryu";
 /**
  * @class HaikuClient
  * @extends Client
@@ -28,9 +29,12 @@ class HaikuClient extends Client {
                 owners: [],
                 devtoken: "",
                 devguild: "",
-                activities: []
+                activities: [],
+                defaultCommands: []
             };
         }
+        if (this.config.defaultCommands.includes("SENRYU"))
+            this.registerCommand(SENRYU.data, SENRYU.execute);
         this.on("ready", () => {
             this.ready = true;
             this._log("-- Haiku Client Ready --");

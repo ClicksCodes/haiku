@@ -36,6 +36,11 @@ export class HaikuUI {
         this.ui.push(items);
         return this;
     }
+    clear() {
+        this.ui = [];
+        this.client._notice("Cleared UI");
+        return this;
+    }
     setRows(rows) {
         if (rows.length > 3)
             return this.client._error("You can only have 3 rows");

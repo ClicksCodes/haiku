@@ -1,7 +1,8 @@
 import {Client, Collection, Interaction, ClientOptions, User} from "discord.js";
-import {SlashCommandBuilder} from "@discordjs/builders";
+import {SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder} from "@discordjs/builders";
 import { HaikuConfig } from "./interfaces/HaikuConfig";
 import chalk from "chalk";
+import * as SENRYU from "./commands/senryu";
 
 /**
  * @class HaikuClient
@@ -10,7 +11,7 @@ import chalk from "chalk";
  * @author ClicksMinutePer
  */
 class HaikuClient extends Client {
-	commands: Collection<string, {command: SlashCommandBuilder, default: (interaction: Interaction) => Promise<any>}>;
+	commands: Collection<string, {command: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder, default: (interaction: Interaction) => Promise<any>}>;
 	ready = false;
 	ownerFilter = (id: string) => this.config.owners.includes(id);
 	private config: HaikuConfig;
@@ -33,10 +34,11 @@ class HaikuClient extends Client {
 				owners: [],
 				devtoken: "",
 				devguild: "",
-				activities: []
+				activities: [],
+				defaultCommands: []
 			}
 		}
-
+		if(this.config.defaultCommands.includes("SENRYU")) this.registerCommand(SENRYU.data, SENRYU.execute);
 		this.on("ready", () => {
 			this.ready = true;
 			this._log("-- Haiku Client Ready --");
@@ -80,7 +82,7 @@ class HaikuClient extends Client {
 	/**
 	 * @param command The Slash Command to add
 	 */
-	registerCommand(command: SlashCommandBuilder, callback: (interaction: Interaction) => Promise<any>) : HaikuClient {
+	registerCommand(command: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder, callback: (interaction: Interaction) => Promise<any>) : HaikuClient {
 		if (command == undefined || callback == undefined) return this;
 
 		this.commands.set(command.name, {command, default: callback});
