@@ -1,13 +1,26 @@
-import {Client, Collection, Interaction, ClientOptions, ClientEvents} from "discord.js";
+import {Client, Collection, Interaction, ClientOptions} from "discord.js";
 import {SlashCommandBuilder} from "@discordjs/builders";
+import { HaikuConfig } from "./interfaces/HaikuConfig";
 
+/**
+ * @class HaikuClient
+ * @extends Client
+ * @description This class is for the client
+ * @author ClicksMinutePer
+ */
 class HaikuClient extends Client {
 	commands: Collection<string, {command: SlashCommandBuilder, default: (interaction: Interaction) => Promise<any>}>;
 	ready = false;
+	private config: HaikuConfig;
 
-	constructor(ClientOptions: ClientOptions) {
+	/**
+	 * @param ClientOptions options
+	 */
+	constructor(ClientOptions?: ClientOptions, config?: HaikuConfig) {
 		super(ClientOptions);
 		this.commands = new Collection();
+
+		this.config = config;
 
 		this.on("ready", () => {
 			this.ready = true;
@@ -37,6 +50,13 @@ class HaikuClient extends Client {
 		console.log(`[HaikuClient @ ${new Date().toLocaleString()}] : ${message}`);
 	}
 
+	_error(message: string) {
+		console.error(`[HaikuClient @ ${new Date().toLocaleString()}] : ${message}`);
+	}
+
+	/**
+	 * @param command The Slash Command to add
+	 */
 	registerCommand(command: SlashCommandBuilder, callback: (interaction: Interaction) => Promise<any>) : HaikuClient {
 		if (command == undefined || callback == undefined) return this;
 
@@ -51,10 +71,16 @@ class HaikuClient extends Client {
 			try {
 				await callback(this, ...eventData);
 			} catch (error) {
-				console.error(error);
+				this._error(error);
 			}
 		});
 		return this;
+	}
+
+	login(token?: string): Promise<string> {
+		if (token == undefined) token = this.config.dev ? this.config.devtoken : this.config.token;
+		if(!token) throw new Error("No token provided!");
+		return super.login(token);
 	}
 
 }
