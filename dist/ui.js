@@ -7,6 +7,8 @@ class HaikuButton {
     }
 }
 class HaikuDropdown {
+    //TODO: Add Min/Max
+    //TODO: Add Disabled
     constructor(options, id, placeholder) {
         this.id = id ? id : (Math.random() * 100000).toString();
         this.placeholder = placeholder ? placeholder : "Select an option:";

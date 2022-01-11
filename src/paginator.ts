@@ -1,68 +1,74 @@
-import { MessageEmbed, MessageButton, MessageActionRow, CommandInteraction, Message } from "discord.js";
-import { APIMessage } from "discord-api-types";
+import { MessageEmbed, MessageButton, MessageActionRow, CommandInteraction, Message, Collection } from "discord.js";
 import HaikuClient from "./client";
 
 interface Page {
-    name: string,
-    content: MessageEmbed,
-    timeout: number
+    content?: string;
+    fields?: Collection<string,string>
 }
 
-export class Paginator {
-    private readonly pages: Page[];
-    private currentPage: number = 0;
-    private readonly interaction: CommandInteraction;
-    private buttonList: MessageButton[];
-    client: HaikuClient;
+interface PaginatorOptions {
+    maxFields?: number;
+    maxDescriptionLength?: number;
+    splitOnSpaces?: boolean;
+}
 
-    constructor(pages: Page[], interaction: CommandInteraction, client: HaikuClient) {
-        this.pages = pages;
-        this.interaction = interaction;
-        this.client = client;
-        this.buttonList = this.pages.map(p => new MessageButton().setLabel(p.name).setCustomId(p.name.toLowerCase()).setStyle("SECONDARY"))
-                
-        
-        
+export class HaikuPaginator {
+
+    private pages:Page[] = [];
+    private maxFields: number = 25;
+    private maxDescriptionLength: number = 4096;
+    private splitOnSpaces: boolean = true;
+    private fields: Collection<string, string> = new Collection<string,string>();
+    private description: string = "";
+
+    /**
+     * @param maxFields The maximum amount of fields per page (default: 25)
+     * @param maxDescriptionLength The maximum amount of description characters per page (default: 4096)
+     * @param splitOnSpaces Whether to attempt to split the description on spaces (default: true)
+     */
+    constructor(options?: PaginatorOptions) {
+        this.maxFields = options?.maxFields ?? 25;
+        this.maxDescriptionLength = options?.maxDescriptionLength ?? 4096;
+        this.splitOnSpaces = options?.splitOnSpaces ?? true;
     }
 
-    //TODO: Remake this
-    async start(): Promise<void> {
-        let m = await this.interaction.reply({
-            embeds: [this.getCurrentPage().content],
-            components: [new MessageActionRow().addComponents(this.buttonList.slice(this.currentPage - 2, this.currentPage + 3))],
-            fetchReply: true
-        })
-        if(!(m instanceof Message)) return;
-        try { 
-            let b = m.awaitMessageComponent({filter: b => b.user.id === this.interaction.user.id, time: this.getCurrentPage().timeout})
-            //TODO: Gave up on this, it's a mess
-        } catch (error) {
-            this.client._error(error);
-        }
+
+    /**
+     * Get a page from the paginator
+     * @param {number} page The page number
+     * 
+     * @returns The page
+     */
+    getPage(page: number): Page {
+        return this.pages[page];
     }
 
-    getCurrentPage(): Page {
-        return this.pages[this.currentPage];
+    addDescriptionContent(content: string, splitAfter: boolean = false) {
+        let l = this.description.length;
+        let c = content.length;
+        this.description += content;
     }
 
-    nextPage(): Page {
-        this.currentPage++;
-        if (this.currentPage >= this.pages.length) {
-            this.currentPage = 0;
-        }
-        return this.getCurrentPage();
+    setDescription(description: string) {
+        this.description = description;
     }
 
-    previousPage(): Page {
-        this.currentPage--;
-        if (this.currentPage < 0) {
-            this.currentPage = this.pages.length - 1;
-        }
-        return this.getCurrentPage();
+    addField(name: string, value: string) {
+
     }
 
-    goToPage(pageName: string): Page {
-        this.currentPage = this.pages.indexOf(this.pages.filter(p => p.name === pageName)[0]);
-        return this.getCurrentPage();
+    addFields(fields: Collection<string,string>) {
+
     }
 }
+
+/*
+    Embed descriptions are limited to 4096 characters
+    There can be up to 25 fields
+    The sum of all characters from all embed structures in a message must not exceed 6000 characters
+
+    maxFields must not exceed 25
+    maxDescriptionLength must not exceed 4096
+
+    https://discordjs.guide/popular-topics/embeds.html#embed-limits
+*/

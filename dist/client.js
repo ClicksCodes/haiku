@@ -1,4 +1,4 @@
-import { Client, Collection } from "discord.js";
+import { Client, Collection, User } from "discord.js";
 import chalk from "chalk";
 import * as SENRYU from "./commands/senryu.js";
 /**
@@ -35,15 +35,28 @@ class HaikuClient extends Client {
         }
         if (this.config.defaultCommands.includes("SENRYU"))
             this.registerCommand(SENRYU.data, SENRYU.execute);
-        this.on("ready", () => {
+        this.once("ready", async () => {
+            var _a;
+            try {
+                await this.application.fetch();
+                (_a = this.config).owners ?? (_a.owners = this.application.owner instanceof User ? [this.application.owner.id] : this.application.owner.members.map(owner => owner.id));
+            }
+            catch (e) {
+                this._error(e);
+            }
+            this.emit("hydrated");
             this.ready = true;
             this._log("-- Haiku Client Ready --");
             this._log(`Logged in as ${this.user.tag}`);
             this._log(`Serving ${this.guilds.cache.size} guilds`);
             this._log(`-- Here we go! --`);
-            this._log(this.application.owner.toString());
+        });
+        this.on("ready", async () => {
+            this._log("Client connected to discord");
         });
         this.on("interactionCreate", async (interaction) => {
+            if (!this.ready)
+                return;
             if (!interaction.isCommand())
                 return;
             const command = this.commands.get(interaction.commandName);

@@ -31,6 +31,8 @@ class HaikuDropdown {
     id: string;
     placeholder: string;
     options: HaikuDropdownOptions[];
+    //TODO: Add Min/Max
+    //TODO: Add Disabled
 
     constructor(options: HaikuDropdownOptions[], id?: string, placeholder?: string) {
         this.id = id ? id : (Math.random() * 100000).toString();
