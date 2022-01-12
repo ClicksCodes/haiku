@@ -2,7 +2,7 @@
   "name": "@clicksminuteper/jshaiku",
   "version": "1.0.0",
   "description": "JSHaiku discord client",
-  "main": "index.js",
+  "main": "dist/index.js",
   "access": "public",
   "scripts": {
     "test": "tsc && node test/index.js",
@@ -31,6 +31,7 @@
     "discord.js": "^13.5.1"
   },
   "devDependencies": {
+    "jest": "^27.4.7",
     "typescript": "4.5.4"
   },
   "type": "module"

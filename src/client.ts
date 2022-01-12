@@ -15,6 +15,7 @@ export class HaikuClient extends Client {
 	ready = false;
 	ownerFilter = (id: string) => this.config.owners.includes(id);
 	private config: HaikuConfig;
+	senryu: SENRYU.Senryu;
 
 	/**
 	 * @param ClientOptions options
@@ -38,7 +39,10 @@ export class HaikuClient extends Client {
 				defaultCommands: []
 			}
 		}
-		if(this.config.defaultCommands.includes("SENRYU")) this.registerCommand(SENRYU.data, SENRYU.execute);
+		if(this.config.defaultCommands.includes("SENRYU")){
+			this.registerCommand(SENRYU.data, SENRYU.execute);
+			this.senryu = new SENRYU.Senryu(this);
+		}
 		
 		this.once("ready", async () => {
 			try {

@@ -16,11 +16,5 @@ paginator.addField('test', 'fourth');
 paginator.addField('test', 'fifth');
 
 paginator.setDescription('a sentence that\'s the worst thing I can think of right now to paginate')
-let v;
-while (v = paginator.next()) {
-    console.log(v);
-    await wait(1000);
-}
-
 
 client.login(config.token);

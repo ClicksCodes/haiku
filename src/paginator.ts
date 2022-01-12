@@ -64,33 +64,28 @@ export class HaikuPaginator {
 
     /**
      * @param page The page to get
-     * @description Gets the start and end index of the page
-     * @returns An array with the start and end index of the page and a bo
+     * @description Gets the start and end index of the page description
+     * @returns An array with the start and end index of the page, as well as a boolean of if the page ended with a space
      */
-    getPageDescriptionStartEnd(page: number): [number, number, boolean] {
-        if(!this.splitOnSpaces) return [page*this.maxDescriptionLength, (page+1)*this.maxDescriptionLength, false];
-
-        // if (this._descriptionStartEndMemo[page] && this._descriptionStartEndMemo[page + 1]) return this._descriptionStartEndMemo[page];
-        let start:number = page === 0 ? 0 : this.getPageDescriptionStartEnd(page - 1)[1];
-
-        console.log(start);
-
-        let length: number
-        let endOnSpace: boolean = false;
-
-        if(!this.description.substring(start, this.maxDescriptionLength).endsWith(" ") || this.description.length <= start + this.maxDescriptionLength + 1) {
-            length = this.description.substring(start,this.maxDescriptionLength).lastIndexOf(' ') + 1;
-            if(length === 0) length = this.maxDescriptionLength;
-            else endOnSpace = true;
-        } else {
-            length = this.maxDescriptionLength;
-            endOnSpace = true;
+    getPageDescriptionStartEnd(page: number): [number, number] {
+        //TODO: Fix not Split on spaces
+        if(!this.splitOnSpaces) return [page*this.maxDescriptionLength, Math.min(((page+1)*this.description.length)-1, this.description.length)];
+        let start = page === 0 ? 0 : this.getPageDescriptionStartEnd(page - 1)[1];
+        let endF = this.description.indexOf('\f', start) === -1 ? Infinity : this.description.indexOf('\f', start) - start;
+        let endS:number;
+        while(this.description.substring(start).startsWith(' ')) {
+            start++;
         }
+        if(this.description.substring(start, start + this.maxDescriptionLength + 1).endsWith(' ')) {
+            endS = this.maxDescriptionLength;
+        } else if(start + this.maxDescriptionLength > this.description.length) {
+            endS = this.description.length;
+        } else {
+            endS = this.description.substring(start, start + this.maxDescriptionLength).lastIndexOf(' ');
+        }
+        let length = Math.min(endF, endS);
 
-        let returnValue:[number,number,boolean] = [start-1, start + length + 1, endOnSpace];
-
-        this._descriptionStartEndMemo[page] = returnValue;
-        return returnValue;
+        return [start, Math.min(length + start, this.description.length)]
     }
 
     getFields(page: number): field[] {
@@ -99,14 +94,14 @@ export class HaikuPaginator {
         return this.fields.slice(page * this.maxFields, end);
     }
 
-    getEmbed(page: number): MessageEmbed {
+    getEmbed(page: number = this.page): MessageEmbed {
         this.page = page;
         let fields = this.getFields(page);
         let description = this.getPageDescriptionStartEnd(page);
 
         this.embed.fields = fields;
-        this.embed.description = this.description.substring(description[0], description[1] - (description[2] ? 1 : 0));
-    
+        this.embed.description = this.description.substring(description[0], description[1]);
+
         if (this.embed.fields.length === 0 && this.embed.description === "") return null;
 
         return this.embed;
@@ -115,12 +110,13 @@ export class HaikuPaginator {
     next(): MessageEmbed {
         this.page++;
         let page = this.getEmbed(this.page);
+        if (!page) this.page--;
         return page;
     }
 
     prev(): MessageEmbed {
+        if (this.page < 1) return null;
         this.page--;
-        if (this.page < 0) return null;
         return this.getEmbed(this.page);
     }
 
