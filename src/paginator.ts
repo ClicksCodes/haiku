@@ -19,7 +19,7 @@ export class HaikuPaginator {
     private fields: field[] = [];
     private description: string = "";
     private embed: MessageEmbed;
-    private _descriptionStartEndMemo: {[page: number]: [number, number, boolean]} = {};
+    private _descriptionStartEndMemo: {[page: number]: [number, number]} = {};
 
     public* getIterator() {
         this.page = -1;
@@ -37,7 +37,7 @@ export class HaikuPaginator {
      * @param splitOnSpaces Attempt to split the description on spaces (default: true)
      * @description Creates a new paginator, can force page split with \f
      */
-    constructor(embed:MessageEmbed, options?: PaginatorOptions) {
+    constructor(embed:MessageEmbed, options: PaginatorOptions = {}) {
         this.maxFields = options?.maxFields ?? 25;
         this.maxDescriptionLength = options?.maxDescriptionLength ?? 4096;
         this.splitOnSpaces = options?.splitOnSpaces ?? true;
@@ -67,9 +67,12 @@ export class HaikuPaginator {
      * @description Gets the start and end index of the page description
      * @returns An array with the start and end index of the page, as well as a boolean of if the page ended with a space
      */
-    getPageDescriptionStartEnd(page: number): [number, number] {
+    private getPageDescriptionStartEnd(page: number): [number, number] {
         //TODO: Fix not Split on spaces
-        if(!this.splitOnSpaces) return [page*this.maxDescriptionLength, Math.min(((page+1)*this.description.length)-1, this.description.length)];
+        if(!this.splitOnSpaces) return [page*this.maxDescriptionLength, Math.min(((page+1)*this.maxDescriptionLength), this.description.length)];
+
+        if(this._descriptionStartEndMemo[page] && this._descriptionStartEndMemo[page + 1]) return this._descriptionStartEndMemo[page];
+
         let start = page === 0 ? 0 : this.getPageDescriptionStartEnd(page - 1)[1];
         let endF = this.description.indexOf('\f', start) === -1 ? Infinity : this.description.indexOf('\f', start) - start;
         let endS:number;
@@ -85,10 +88,12 @@ export class HaikuPaginator {
         }
         let length = Math.min(endF, endS);
 
+        if (start != Math.min(length + start, this.description.length)) this._descriptionStartEndMemo[page] = [start, Math.min(length + start, this.description.length)];
+
         return [start, Math.min(length + start, this.description.length)]
     }
 
-    getFields(page: number): field[] {
+    private getFields(page: number): field[] {
         if(page*this.maxFields > this.fields.length) return [];
         let end = Math.min((page + 1) * this.maxFields, this.fields.length);
         return this.fields.slice(page * this.maxFields, end);
@@ -101,6 +106,7 @@ export class HaikuPaginator {
 
         this.embed.fields = fields;
         this.embed.description = this.description.substring(description[0], description[1]);
+
 
         if (this.embed.fields.length === 0 && this.embed.description === "") return null;
 

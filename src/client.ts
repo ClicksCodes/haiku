@@ -36,13 +36,13 @@ export class HaikuClient extends Client {
 				devtoken: "",
 				devguild: "",
 				activities: [],
-				defaultCommands: []
+				//defaultCommands: []
 			}
 		}
-		if(this.config.defaultCommands.includes("SENRYU")){
-			this.registerCommand(SENRYU.data, SENRYU.execute);
-			this.senryu = new SENRYU.Senryu(this);
-		}
+		// if(this.config.defaultCommands.includes("SENRYU")){
+		// 	this.registerCommand(SENRYU.data, SENRYU.execute);
+		// 	this.senryu = new SENRYU.Senryu(this);
+		// }
 		
 		this.once("ready", async () => {
 			try {

@@ -7,5 +7,5 @@ export interface HaikuConfig {
     devtoken?: string;
     devguild?: string;
     dev?: boolean;
-    defaultCommands?: DEFAULT_COMMANDS[];
+    //defaultCommands?: DEFAULT_COMMANDS[];
 }

@@ -6,7 +6,7 @@ export class HaikuPaginator {
      * @param splitOnSpaces Attempt to split the description on spaces (default: true)
      * @description Creates a new paginator, can force page split with \f
      */
-    constructor(embed, options) {
+    constructor(embed, options = {}) {
         this.page = -1;
         this.maxFields = 25;
         this.maxDescriptionLength = 4096;
@@ -49,7 +49,9 @@ export class HaikuPaginator {
     getPageDescriptionStartEnd(page) {
         //TODO: Fix not Split on spaces
         if (!this.splitOnSpaces)
-            return [page * this.maxDescriptionLength, Math.min(((page + 1) * this.description.length) - 1, this.description.length)];
+            return [page * this.maxDescriptionLength, Math.min(((page + 1) * this.maxDescriptionLength), this.description.length)];
+        if (this._descriptionStartEndMemo[page] && this._descriptionStartEndMemo[page + 1])
+            return this._descriptionStartEndMemo[page];
         let start = page === 0 ? 0 : this.getPageDescriptionStartEnd(page - 1)[1];
         let endF = this.description.indexOf('\f', start) === -1 ? Infinity : this.description.indexOf('\f', start) - start;
         let endS;
@@ -66,6 +68,8 @@ export class HaikuPaginator {
             endS = this.description.substring(start, start + this.maxDescriptionLength).lastIndexOf(' ');
         }
         let length = Math.min(endF, endS);
+        if (start != Math.min(length + start, this.description.length))
+            this._descriptionStartEndMemo[page] = [start, Math.min(length + start, this.description.length)];
         return [start, Math.min(length + start, this.description.length)];
     }
     getFields(page) {
