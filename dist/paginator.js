@@ -2,20 +2,20 @@
 export class HaikuPaginator {
     /**
      * @param maxFields The maximum amount of fields per page (default: 25)
-     * @param maxDescriptionLength The maximum amount of description characters per page (default: 4096)
+     * @param maxDescriptionLength The maximum amount of description characters per page (default: 2000)
      * @param splitOnSpaces Attempt to split the description on spaces (default: true)
      * @description Creates a new paginator, can force page split with \f
      */
     constructor(embed, options = {}) {
         this.page = -1;
         this.maxFields = 25;
-        this.maxDescriptionLength = 4096;
+        this.maxDescriptionLength = 2000;
         this.splitOnSpaces = true;
         this.fields = [];
         this.description = "";
         this._descriptionStartEndMemo = {};
         this.maxFields = options?.maxFields ?? 25;
-        this.maxDescriptionLength = options?.maxDescriptionLength ?? 4096;
+        this.maxDescriptionLength = options?.maxDescriptionLength ?? 2000;
         this.splitOnSpaces = options?.splitOnSpaces ?? true;
         this.embed = embed;
     }

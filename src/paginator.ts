@@ -1,5 +1,4 @@
 import { MessageEmbed, MessageButton, MessageActionRow, CommandInteraction, Message, Collection } from "discord.js";
-import HaikuClient from "./client";
 
 interface field {name: string, value: string, inline: boolean};
 
@@ -14,7 +13,7 @@ export class HaikuPaginator {
 
     private page:number = -1;
     private maxFields: number = 25;
-    private maxDescriptionLength: number = 4096;
+    private maxDescriptionLength: number = 2000;
     private splitOnSpaces: boolean = true;
     private fields: field[] = [];
     private description: string = "";
@@ -33,13 +32,13 @@ export class HaikuPaginator {
 
     /**
      * @param maxFields The maximum amount of fields per page (default: 25)
-     * @param maxDescriptionLength The maximum amount of description characters per page (default: 4096)
+     * @param maxDescriptionLength The maximum amount of description characters per page (default: 2000)
      * @param splitOnSpaces Attempt to split the description on spaces (default: true)
      * @description Creates a new paginator, can force page split with \f
      */
     constructor(embed:MessageEmbed, options: PaginatorOptions = {}) {
         this.maxFields = options?.maxFields ?? 25;
-        this.maxDescriptionLength = options?.maxDescriptionLength ?? 4096;
+        this.maxDescriptionLength = options?.maxDescriptionLength ?? 2000;
         this.splitOnSpaces = options?.splitOnSpaces ?? true;
         this.embed = embed;
     }
@@ -67,7 +66,7 @@ export class HaikuPaginator {
      * @description Gets the start and end index of the page description
      * @returns An array with the start and end index of the page, as well as a boolean of if the page ended with a space
      */
-    private getPageDescriptionStartEnd(page: number): [number, number] {
+    getPageDescriptionStartEnd(page: number): [number, number] {
         //TODO: Fix not Split on spaces
         if(!this.splitOnSpaces) return [page*this.maxDescriptionLength, Math.min(((page+1)*this.maxDescriptionLength), this.description.length)];
 
@@ -93,7 +92,7 @@ export class HaikuPaginator {
         return [start, Math.min(length + start, this.description.length)]
     }
 
-    private getFields(page: number): field[] {
+    getFields(page: number): field[] {
         if(page*this.maxFields > this.fields.length) return [];
         let end = Math.min((page + 1) * this.maxFields, this.fields.length);
         return this.fields.slice(page * this.maxFields, end);

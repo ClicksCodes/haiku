@@ -3,11 +3,12 @@ import { MessageEmbed } from 'discord.js';
 
 test('iterates through all embeds', () => {
     let p = new HaikuPaginator(new MessageEmbed());
-    for(let i = 0; i < 100; i++) p.addDescriptionContent('test');
-    let pages = [...p.getIterator()];
-    for(let page of pages) {
-        expect(page.description.length > 0 || page.fields.length > 0).toBe(true);
+    for(let i = 0; i < 1000; i++) {
+        p.addDescriptionContent('test');
     }
+    let pages = Array.from(p.getIterator());
+    console.log(pages[0])
+    expect(pages.length).toBe(3);
 });
 
 test('checks the length of description doesn\'t exceed maxDescriptionLength', () => {
@@ -24,6 +25,7 @@ test('checks the length of fields doesn\'t exceed maxFields', () => {
     for(let i = 0; i < 100; i++) p.addField('test', i.toString());
     let pages = [...p.getIterator()];
     for(let page of pages) {
+        
         expect(page.fields.length <= p.maxFields).toBe(true);
     }
 })
