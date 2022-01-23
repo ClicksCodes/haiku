@@ -1,5 +1,5 @@
 {
-  "name": "@clicksminuteper/jshaiku",
+  "name": "jshaiku",
   "version": "1.0.0",
   "description": "JSHaiku discord client",
   "main": "dist/index.js",
