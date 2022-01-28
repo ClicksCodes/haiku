@@ -1,9 +1,11 @@
 {
     "compilerOptions": {
-        "outDir": "./dist",
-        "target": "ES2020",
-        "moduleResolution": "node",
-        "esModuleInterop": true
+        "module": "ES2020",
+        "target": "ES2021",
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "moduleResolution": "Node",
+        "outDir": "./dist"
     },
     "include": [
         "src/**/*"
