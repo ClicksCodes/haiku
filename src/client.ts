@@ -1,10 +1,11 @@
 import {Client, Collection, Interaction, ClientOptions, User, CommandInteraction} from "discord.js";
 import {SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder} from "@discordjs/builders";
-import { HaikuConfig } from "./interfaces/HaikuConfig";
+import {HaikuConfig} from "./interfaces/HaikuConfig";
 import chalk from "chalk";
 import * as SENRYU from "./commands/senryu.js";
 import {REST} from "@discordjs/rest";
-import {Routes} from "discord-api-types/v9";
+import {ApplicationCommandPermissionType, Routes} from "discord-api-types/v9";
+import {ApplicationCommandPermissionTypes} from "discord.js/typings/enums";
 
 /**
  * @class HaikuClient
@@ -109,7 +110,21 @@ export class HaikuClient extends Client {
 
 		this.on("interactionCreate", async (interaction) => {
 			if (!this.ready) return;
-			if(!interaction.isCommand()) return;
+			if (!interaction.isCommand()) return;
+
+			if (this.config.restrictToOwner && !this.isOwner(interaction.user.id)) {
+				this._log(`${interaction.user.tag} tried to use a command but is not an owner`);
+				return await interaction.reply({
+					embeds: [
+						{
+							title: "You are not an owner",
+							description: "This bot is in restricted mode and you are not an owner of this bot. If you believe this is an error, please contact the bot owner.",
+							color: 0xFF0000
+						}
+					],
+					ephemeral: true
+				});
+			}
 
 			const command = this.commands.get(interaction.commandName);
 
@@ -148,15 +163,15 @@ export class HaikuClient extends Client {
 		}
 	}
 
-	isOwner (id: string) {
-		this.config.owners.includes(id);
+	isOwner(id: string): boolean {
+		return this.config.owners.includes(id);
 	}
 
 	/**
 	 * @param command The Slash Command to add
 	 * @param callback The callback to execute when the command is called
 	 */
-	registerCommand(command: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder, callback: (interaction: CommandInteraction) => Promise<any>) : HaikuClient {
+	registerCommand(command: SlashCommandBuilder, callback: (interaction: CommandInteraction) => Promise<any>): HaikuClient {
 		if (command === undefined || callback === undefined) return this;
 
 		this.commands.set(command.name, {command, default: callback});
@@ -194,25 +209,26 @@ export class HaikuClient extends Client {
 	}
 
 	async _HTTPRegisterCommands(command?: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder) {
-		let commands = command === undefined ? this.commands.map(c => c.command.toJSON()) : [command.toJSON()];
-
-		this._log(`Registering ${commands.length} command${commands.length !== 1 ? "s" : ""}`);
-		await this.waitForReady();
-
-		const rest = new REST({version: '9'}).setToken(this.token);
-
 		try {
+			let commands = command === undefined ? this.commands.map(c => c.command.toJSON()) : [command.toJSON()];
+
+			this._log(`Registering ${commands.length} command${commands.length !== 1 ? "s" : ""}`);
+			await this.waitForReady();
+
+			const rest = new REST({version: '9'}).setToken(this.token);
+
 			await rest.put(
 				this.config.dev ? Routes.applicationGuildCommands(this.user.id, this.config.devguild) : Routes.applicationCommands(this.user.id),
 				{body: commands}
 			);
 			this._log('Successfully registered all commands');
 		} catch (err) {
-			this._log(`Failure while registering commands: ${err}`);
+			this._error(`Failure while registering commands`)
+			this._error(err);
 		}
 	}
 
-	registerEvent(event: string, callback: (client: HaikuClient, ...eventData) => Promise<any>) : HaikuClient {
+	registerEvent(event: string, callback: (client: HaikuClient, ...eventData) => Promise<any>): HaikuClient {
 		if (event === undefined || callback === undefined) return this;
 
 		this.on(event, async (...eventData) => {

@@ -1,6 +1,10 @@
 import { MessageEmbed, MessageButton, MessageActionRow, CommandInteraction, Message, Collection } from "discord.js";
 
-interface field {name: string, value: string, inline: boolean};
+interface field {
+    name: string,
+    value: string,
+    inline: boolean
+}
 
 
 interface PaginatorOptions {
@@ -20,16 +24,6 @@ export class HaikuPaginator {
     private embed: MessageEmbed;
     private _descriptionStartEndMemo: {[page: number]: [number, number]} = {};
 
-    public* getIterator() {
-        this.page = -1;
-        while (true) {
-            let page = this.next();
-            if (!page) return page;
-
-            yield page;
-        }
-    }
-
     /**
      * @param maxFields The maximum amount of fields per page (default: 25)
      * @param maxDescriptionLength The maximum amount of description characters per page (default: 2000)
@@ -43,6 +37,15 @@ export class HaikuPaginator {
         this.embed = embed;
     }
 
+    public* getIterator() {
+        this.page = -1;
+        while (true) {
+            let page = this.next();
+            if (!page) return page;
+
+            yield page;
+        }
+    }
 
     addDescriptionContent(content: string, splitAfter: boolean = false) {
         this.description += content;
