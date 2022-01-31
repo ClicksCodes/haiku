@@ -255,7 +255,7 @@ export class HaikuClient extends Client {
 		if (callback == undefined) return this;
 
 		if (time === null || time === undefined) {
-			callback(this).then();
+			callback(this).then().catch(this._error.bind(this));
 		} else {
 			let task = schedule(time, async () => {
 				this._log(`Running scheduled task (${time})`);
