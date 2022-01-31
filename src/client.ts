@@ -4,8 +4,10 @@ import {HaikuConfig} from "./interfaces/HaikuConfig";
 import chalk from "chalk";
 import * as SENRYU from "./commands/senryu.js";
 import {REST} from "@discordjs/rest";
-import {ApplicationCommandPermissionType, Routes} from "discord-api-types/v9";
-import {ApplicationCommandPermissionTypes} from "discord.js/typings/enums";
+import {Routes} from "discord-api-types/v9";
+import cron from "node-cron";
+
+const {schedule} = cron;
 
 /**
  * @class HaikuClient
@@ -17,6 +19,7 @@ export class HaikuClient extends Client {
 	config: HaikuConfig;
 	senryu: SENRYU.Senryu;
 	ready: boolean;
+	tasksToRun: cron.ScheduledTask[];
 	commands: Collection<string, {command: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder, default: (interaction: Interaction) => Promise<any>}>;
 
 	/**
@@ -64,6 +67,7 @@ export class HaikuClient extends Client {
 		super(superOptions);
 		this.ready = false;
 		this.commands = new Collection();
+		this.tasksToRun = [];
 
 		if (config) {
 			if(!config.dev) config.dev = false;
@@ -102,6 +106,8 @@ export class HaikuClient extends Client {
 			this._log(`Logged in as ${this.user.tag}`);
 			this._log(`Serving ${this.guilds.cache.size} guilds`);
 			this._log(`-- Here we go! --`);
+			this.tasksToRun.forEach(task => task.start());
+			this.tasksToRun = [];
 		});
 
 		this.on("ready", async () => {
@@ -238,6 +244,31 @@ export class HaikuClient extends Client {
 				this._error(error);
 			}
 		});
+		return this;
+	}
+
+	/**
+	 * @param time The time to run the task at, either null to run immediately on bot startup or a cron string
+	 * @param callback The callback to execute when the command is called
+	 */
+	registerTask(time: string | null | undefined, callback: (client: HaikuClient) => Promise<any>) : HaikuClient {
+		if (callback == undefined) return this;
+
+		if (time === null || time === undefined) {
+			callback(this).then();
+		} else {
+			let task = schedule(time, async () => {
+				this._log(`Running scheduled task (${time})`);
+				try {
+					await callback(this);
+				} catch (error) {
+					this._error(error);
+				}
+			}, {scheduled: this.ready, timezone: "UTC"});
+
+			if (!this.ready) this.tasksToRun.push(task);
+		}
+
 		return this;
 	}
 
