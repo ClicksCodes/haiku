@@ -1,13 +1,38 @@
-import {Client, Collection, Interaction, ClientOptions, User, CommandInteraction} from "discord.js";
-import {SlashCommandBuilder, SlashCommandSubcommandsOnlyBuilder} from "@discordjs/builders";
-import {HaikuConfig} from "./interfaces/HaikuConfig";
+import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from "@discordjs/builders";
+import { REST } from "@discordjs/rest";
 import chalk from "chalk";
-import * as SENRYU from "./commands/senryu.js";
-import {REST} from "@discordjs/rest";
-import {Routes} from "discord-api-types/v9";
+import { Routes } from "discord-api-types/v9";
+import { Client, ClientOptions, Collection, CommandInteraction, Interaction, User } from "discord.js";
 import cron from "node-cron";
+import * as SENRYU from "./commands/senryu.js";
+import { HaikuConfig } from "./interfaces/HaikuConfig";
 
-const {schedule} = cron;
+const { schedule } = cron;
+
+export interface Command {
+	command: SlashCommandBuilder;
+	callback: (interaction: CommandInteraction) => any | Promise<any>;
+	check?: (interaction: CommandInteraction) => boolean | Promise<boolean>;
+}
+
+export interface Subcommand implements Command {
+	command: SlashCommandSubcommandBuilder;
+	check?: (interaction: CommandInteraction, check: (interaction: CommandInteraction) => Promise<boolean>) => boolean | Promise<boolean>;
+}
+
+export interface SubcommandGroup {
+	name: string;
+	description: string;
+	commands?: Subcommand[];
+	check?: (interaction: CommandInteraction) => boolean | Promise<boolean>;
+}
+
+export interface Subcommands implements SubcommandGroup {
+	groups?: SubcommandGroup[] & !Subcommands;
+}
+
+
+
 
 /**
  * @class HaikuClient
@@ -20,7 +45,7 @@ export class HaikuClient extends Client {
 	senryu: SENRYU.Senryu;
 	ready: boolean;
 	tasksToRun: cron.ScheduledTask[];
-	commands: Collection<string, {command: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder, default: (interaction: Interaction) => Promise<any>}>;
+	commands: Collection<string, Command>;
 
 	/**
 	 * @param ClientOptions options
@@ -70,8 +95,8 @@ export class HaikuClient extends Client {
 		this.tasksToRun = [];
 
 		if (config) {
-			if(!config.dev) config.dev = false;
-			this.config = config;	
+			if (!config.dev) config.dev = false;
+			this.config = config;
 		} else {
 			this._notice("No config provided, using default config");
 			this.config = {
@@ -88,7 +113,7 @@ export class HaikuClient extends Client {
 		// 	this.registerCommand(SENRYU.data, SENRYU.execute);
 		// 	this.senryu = new SENRYU.Senryu(this);
 		// }
-		
+
 		this.once("ready", async () => {
 			try {
 				await this.application.fetch();
@@ -111,7 +136,7 @@ export class HaikuClient extends Client {
 		});
 
 		this.on("ready", async () => {
-			this._log("Client connected to discord")	
+			this._log("Client connected to discord")
 		});
 
 		this.on("interactionCreate", async (interaction) => {
@@ -173,19 +198,24 @@ export class HaikuClient extends Client {
 		return this.config.owners.includes(id);
 	}
 
+
 	/**
 	 * @param command The Slash Command to add
 	 * @param callback The callback to execute when the command is called
 	 */
-	registerCommand(command: SlashCommandBuilder, callback: (interaction: CommandInteraction) => Promise<any>): HaikuClient {
-		if (command === undefined || callback === undefined) return this;
-
-		this.commands.set(command.name, {command, default: callback});
-
-		if (this.ready) {
-			this._HTTPRegisterCommands(command).then();
+	registerCommand(options: Command | Subcommands & !Subcommand) {
+		if (options.hasOwnProperty("command")) {
+			// It's just a normal command
+			options = options as Command;
+			this.commands.set(options.command.name, {command: options.command, default: options.callback, check: options.check});
 		}
 
+		
+		// this.commands.set(command.name, {command, default: callback});
+
+		// if (this.ready) {
+		// 	this._HTTPRegisterCommands(command).then();
+		// }
 		return this;
 	}
 
@@ -196,7 +226,7 @@ export class HaikuClient extends Client {
 		});
 	}
 
-	async waitForEvent({event, check = (..._) => true, timeout = null} : {event: string, check: (...eventData) => boolean, timeout?: number}): Promise<any> {
+	async waitForEvent({ event, check = (..._) => true, timeout = null }: { event: string, check: (...eventData) => boolean, timeout?: number }): Promise<any> {
 		return await new Promise((resolve, reject) => {
 			const tryToResolve = (...eventData) => {
 				if (check(...eventData)) {
@@ -214,18 +244,18 @@ export class HaikuClient extends Client {
 		});
 	}
 
-	async _HTTPRegisterCommands(command?: SlashCommandBuilder | SlashCommandSubcommandsOnlyBuilder) {
+	async _HTTPRegisterCommands(command?: SlashCommandBuilder) {
 		try {
 			let commands = command === undefined ? this.commands.map(c => c.command.toJSON()) : [command.toJSON()];
 
 			this._log(`Registering ${commands.length} command${commands.length !== 1 ? "s" : ""}`);
 			await this.waitForReady();
 
-			const rest = new REST({version: '9'}).setToken(this.token);
+			const rest = new REST({ version: '9' }).setToken(this.token);
 
 			await rest.put(
 				this.config.dev ? Routes.applicationGuildCommands(this.user.id, this.config.devguild) : Routes.applicationCommands(this.user.id),
-				{body: commands}
+				{ body: commands }
 			);
 			this._log('Successfully registered all commands');
 		} catch (err) {
@@ -251,7 +281,7 @@ export class HaikuClient extends Client {
 	 * @param time The time to run the task at, either null to run immediately on bot startup or a cron string
 	 * @param callback The callback to execute when the command is called
 	 */
-	registerTask(time: string | null | undefined, callback: (client: HaikuClient) => Promise<any>) : HaikuClient {
+	registerTask(time: string | null | undefined, callback: (client: HaikuClient) => Promise<any>): HaikuClient {
 		if (callback == undefined) return this;
 
 		if (time === null || time === undefined) {
@@ -264,7 +294,7 @@ export class HaikuClient extends Client {
 				} catch (error) {
 					this._error(error);
 				}
-			}, {scheduled: this.ready, timezone: "UTC"});
+			}, { scheduled: this.ready, timezone: "UTC" });
 
 			if (!this.ready) this.tasksToRun.push(task);
 		}
@@ -279,19 +309,19 @@ export class HaikuClient extends Client {
 	login(token?: string): Promise<string> {
 		if (!token) {
 			this._warn("No token provided, trying config tokens instead");
-			if(this.config.dev) {
+			if (this.config.dev) {
 				token = this.config.devtoken;
-				if(!token) {
+				if (!token) {
 					this._error("Dev token not provided")
 					return process.exit(1);
 				}
 			} else {
 				token = this.config.token;
-				if(!token) {
+				if (!token) {
 					this._error("Main token not provided")
 					this._notice("Attempting log in with dev token");
 					token = this.config.devtoken;
-					if(!token) throw new Error("No tokens provided");
+					if (!token) throw new Error("No tokens provided");
 				}
 			}
 		}
