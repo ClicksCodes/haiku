@@ -1,3 +1,5 @@
+import {CommandInteraction} from "discord.js";
+
 type DEFAULT_COMMANDS = "SENRYU";
 
 export interface HaikuConfig {
@@ -8,5 +10,6 @@ export interface HaikuConfig {
     devguild?: string;
     dev?: boolean;
     restrictToOwner?: boolean;
+    defaultCheck?: (interaction: CommandInteraction) => Promise<boolean> | boolean;
     //defaultCommands?: DEFAULT_COMMANDS[];
 }

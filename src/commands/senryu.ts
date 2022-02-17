@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from "@discordjs/builders";
 import { UserResolvable, Message, Collection, MessageEmbed } from "discord.js";
 import HaikuClient from "../client";
-import { HaikuCommandInteraction } from "../interfaces/HaikuCommandInteraction";
+import { HaikuCommandInteraction } from "../classes/HaikuCommandInteraction";
 import REPL from "repl";
 import * as cp from "child_process";
 import { HaikuPaginator } from "../index.js";
@@ -74,7 +74,7 @@ export class Senryu {
         interaction.user = u;
         interaction.member = await interaction.guild.members.fetch(user);
         interaction.memberPermissions = interaction.member.permissions;
-        cmd.default(interaction)
+        cmd.callback(interaction)
         return;
     }
 

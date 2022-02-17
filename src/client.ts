@@ -1,4 +1,9 @@
-import { SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandGroupBuilder } from "@discordjs/builders";
+import {
+	Embed,
+	SlashCommandBuilder,
+	SlashCommandSubcommandBuilder,
+	SlashCommandSubcommandGroupBuilder
+} from "@discordjs/builders";
 import { REST } from "@discordjs/rest";
 import chalk from "chalk";
 import { Routes } from "discord-api-types/v9";
@@ -6,33 +11,16 @@ import { Client, ClientOptions, Collection, CommandInteraction, Interaction, Use
 import cron from "node-cron";
 import * as SENRYU from "./commands/senryu.js";
 import { HaikuConfig } from "./interfaces/HaikuConfig";
+import {BaseCommand, Command, Subcommand, SubcommandGroup, Subcommands} from "./interfaces/Commands";
+import fs from "fs";
+import getCaller from "./utils/getCaller.js";
+import * as path from "path";
 
 const { schedule } = cron;
 
-export interface Command {
-	command: SlashCommandBuilder;
-	callback: (interaction: CommandInteraction) => any | Promise<any>;
-	check?: (interaction: CommandInteraction) => boolean | Promise<boolean>;
+interface _Command extends BaseCommand {
+	check: (interaction: CommandInteraction) => boolean | Promise<boolean>;
 }
-
-export interface Subcommand implements Command {
-	command: SlashCommandSubcommandBuilder;
-	check?: (interaction: CommandInteraction, check: (interaction: CommandInteraction) => Promise<boolean>) => boolean | Promise<boolean>;
-}
-
-export interface SubcommandGroup {
-	name: string;
-	description: string;
-	commands?: Subcommand[];
-	check?: (interaction: CommandInteraction) => boolean | Promise<boolean>;
-}
-
-export interface Subcommands implements SubcommandGroup {
-	groups?: SubcommandGroup[] & !Subcommands;
-}
-
-
-
 
 /**
  * @class HaikuClient
@@ -45,7 +33,7 @@ export class HaikuClient extends Client {
 	senryu: SENRYU.Senryu;
 	ready: boolean;
 	tasksToRun: cron.ScheduledTask[];
-	commands: Collection<string, Command>;
+	commands: Collection<string, _Command>;
 
 	/**
 	 * @param ClientOptions options
@@ -88,27 +76,25 @@ export class HaikuClient extends Client {
 				scheduledEvent: "https://discord.com/events"
 			}
 		} as ClientOptions;
+		let defaultConfig = {
+			token: "",
+			dev: false,
+			owners: [],
+			devtoken: "",
+			devguild: "",
+			activities: [],
+			defaultCheck: () => true,
+			//defaultCommands: []
+		};
 		Object.assign(superOptions, ClientOptions);
+		Object.assign(defaultConfig, config);
 		super(superOptions);
 		this.ready = false;
 		this.commands = new Collection();
 		this.tasksToRun = [];
 
-		if (config) {
-			if (!config.dev) config.dev = false;
-			this.config = config;
-		} else {
-			this._notice("No config provided, using default config");
-			this.config = {
-				token: "",
-				dev: false,
-				owners: [],
-				devtoken: "",
-				devguild: "",
-				activities: [],
-				//defaultCommands: []
-			}
-		}
+		this.config = defaultConfig;
+
 		// if(this.config.defaultCommands.includes("SENRYU")){
 		// 	this.registerCommand(SENRYU.data, SENRYU.execute);
 		// 	this.senryu = new SENRYU.Senryu(this);
@@ -123,7 +109,6 @@ export class HaikuClient extends Client {
 			}
 
 			this.ready = true;
-			await this._HTTPRegisterCommands();
 
 			this.emit("hydrated");
 
@@ -143,30 +128,36 @@ export class HaikuClient extends Client {
 			if (!this.ready) return;
 			if (!interaction.isCommand()) return;
 
-			if (this.config.restrictToOwner && !this.isOwner(interaction.user.id)) {
-				this._log(`${interaction.user.tag} tried to use a command but is not an owner`);
-				return await interaction.reply({
-					embeds: [
-						{
-							title: "You are not an owner",
-							description: "This bot is in restricted mode and you are not an owner of this bot. If you believe this is an error, please contact the bot owner.",
-							color: 0xFF0000
-						}
-					],
-					ephemeral: true
-				});
-			}
-
 			const command = this.commands.get(interaction.commandName);
-
 			if (!command) return;
 
+			const sendErrorMessage = async (message: string) => {
+				let method = (!interaction.deferred && !interaction.replied) ? interaction.reply.bind(interaction) : interaction.followUp.bind(interaction);
+				await method({
+					embeds: [
+						new Embed()
+							.setColor(0xff0000)
+							.setTitle("I couldn't run that command")
+							.setDescription(message)
+					]
+				, ephemeral: true});
+			}
+
 			try {
-				await command.default(interaction);
+				let hasPermission = await command.check(interaction);
+
+				if (!hasPermission) {
+					return await sendErrorMessage("You don't have permission to run this command");
+				}
+			} catch (error) {
+				return await sendErrorMessage(`It doesn't look like you can run that command right now: ${error}`);
+			}
+
+			try {
+				await command.callback(interaction);
 			} catch (error) {
 				this._error(error);
-				let method = (!interaction.deferred && !interaction.replied) ? interaction.reply.bind(interaction) : interaction.followUp.bind(interaction);
-				await method({ content: 'There was an error while executing this command!', ephemeral: true });
+				await sendErrorMessage(`There was an error while executing this command!: ${error}`);
 			}
 		});
 	}
@@ -198,27 +189,6 @@ export class HaikuClient extends Client {
 		return this.config.owners.includes(id);
 	}
 
-
-	/**
-	 * @param command The Slash Command to add
-	 * @param callback The callback to execute when the command is called
-	 */
-	registerCommand(options: Command | Subcommands & !Subcommand) {
-		if (options.hasOwnProperty("command")) {
-			// It's just a normal command
-			options = options as Command;
-			this.commands.set(options.command.name, {command: options.command, default: options.callback, check: options.check});
-		}
-
-		
-		// this.commands.set(command.name, {command, default: callback});
-
-		// if (this.ready) {
-		// 	this._HTTPRegisterCommands(command).then();
-		// }
-		return this;
-	}
-
 	async waitForReady() {
 		await new Promise(resolve => {
 			if (this.ready) resolve(this);
@@ -244,9 +214,193 @@ export class HaikuClient extends Client {
 		});
 	}
 
-	async _HTTPRegisterCommands(command?: SlashCommandBuilder) {
+	/**
+	 * @param commandPath The path to the folder containing the commands
+	 */
+	async registerCommandsIn(commandPath: string) {
+		if (!commandPath.startsWith("/")) commandPath = `${path.dirname(getCaller())}/${commandPath}`;
+		commandPath = path.normalize(commandPath);
 		try {
-			let commands = command === undefined ? this.commands.map(c => c.command.toJSON()) : [command.toJSON()];
+			const commandFiles = fs.readdirSync(commandPath, {withFileTypes: true}).filter(
+				file => file.name.endsWith('.js')
+					|| file.name.endsWith('.mjs')
+					|| file.name.endsWith('.cjs')
+					|| file.isDirectory());
+			for (const topLevelFile of commandFiles) {
+				if (topLevelFile.isDirectory()) {
+					let command = {} as Subcommands;
+					// Import all subcommands in the directory
+					const subFiles = fs.readdirSync(`${commandPath}/${topLevelFile.name}`, {withFileTypes: true}).filter(
+						file => file.name.endsWith('.js')
+							|| file.name.endsWith('.mjs')
+							|| file.name.endsWith('.cjs')
+							|| file.isDirectory());
+
+					let level1Subcommands: Subcommand[] = [];
+					let subcommandGroups: SubcommandGroup[] = [];
+
+					for (const subFile of subFiles) {
+						if (subFile.isDirectory()) {
+							// Import all subcommands in the directory
+							const subSubFiles = fs.readdirSync(`${commandPath}/${topLevelFile.name}/${subFile.name}`, {withFileTypes: true}).filter(
+								file => file.name.endsWith('.js')
+									|| file.name.endsWith('.mjs')
+									|| file.name.endsWith('.cjs'));
+
+							let level2Subcommands: Subcommand[] = [];
+
+							for (const subSubFile of subSubFiles) {
+								const commandData = await import(`${commandPath}/${topLevelFile.name}/${subFile.name}/${subSubFile.name}`) as {
+									command: SlashCommandSubcommandBuilder,
+									default?: (interaction: CommandInteraction) => any | Promise<any>,
+									callback?: (interaction: CommandInteraction) => any | Promise<any>,
+									check?: (interaction: CommandInteraction, defaultCheck: (interaction: CommandInteraction) => boolean | Promise<boolean>) => boolean | Promise<boolean>
+								};
+								level2Subcommands.push({
+									command: commandData.command,
+									callback: commandData.callback || commandData.default,
+									check: commandData.check,
+								});
+							}
+
+							let group = {
+								commands: level2Subcommands,
+							} as SubcommandGroup;
+
+							try {
+								const meta = await import(`${commandPath}/${topLevelFile.name}/${subFile.name}/meta.json`, {assert: {type: "json"}}) as { name: string, description: string, defaultPermission: boolean };
+								group.name = (meta.name ?? subFile.name).toLowerCase();
+								group.description = meta.description ?? "No description";
+								// group.defaultPermission = (meta.defaultPermission ?? true); // TODO: Implement default permissions
+							} catch (e) {
+								this._warn(`"No meta.json found for command group ${commandPath}/${topLevelFile.name}/${subFile.name}/ or reading meta.json failed: ${e}`);
+								group.name = subFile.name.toLowerCase();
+								group.description = "No description";
+							}
+
+							subcommandGroups.push(group);
+
+							continue;
+						}
+
+						const commandData = await import(`${commandPath}/${topLevelFile.name}/${subFile.name}`) as {
+							command: SlashCommandSubcommandBuilder,
+							default?: (interaction: CommandInteraction) => any | Promise<any>,
+							callback?: (interaction: CommandInteraction) => any | Promise<any>,
+							check?: (interaction: CommandInteraction, defaultCheck: (interaction: CommandInteraction) => boolean | Promise<boolean>) => boolean | Promise<boolean>
+						};
+
+						let subcommand = {
+							command: commandData.command,
+							callback: commandData.callback || commandData.default,
+							check: commandData.check,
+						} as Subcommand;
+
+						level1Subcommands.push(subcommand);
+					}
+
+					try {
+						const meta = await import(`${commandPath}/${topLevelFile.name}/meta.json`, {assert: {type: "json"}}) as { name: string, description: string, defaultPermission: boolean };
+						command.name = (meta.name ?? topLevelFile.name).toLowerCase();
+						command.description = meta.description ?? "No description";
+						// command.defaultPermission = (meta.defaultPermission ?? true); // TODO: Implement default permissions
+					} catch (e) {
+						this._warn(`"No meta.json found for command group ${commandPath}/${topLevelFile.name}/ or reading meta.json failed: ${e}`);
+						command.name = topLevelFile.name.toLowerCase();
+						command.description = "No description";
+					}
+
+					command.commands = level1Subcommands;
+					command.groups = subcommandGroups;
+					// TODO: Implement checks (possibly changing meta.json to _meta.js or similar?)
+
+					this.registerCommand(command);
+					this._log(`Registered command group ${commandPath}/${topLevelFile.name} (/${command.name})`);
+
+					continue;
+				}
+
+				const commandData = await import(`${commandPath}/${topLevelFile.name}`) as {
+					command: SlashCommandBuilder,
+					default?: (interaction: CommandInteraction) => any | Promise<any>,
+					callback?: (interaction: CommandInteraction) => any | Promise<any>,
+					check?: (interaction: CommandInteraction, defaultCheck: (interaction: CommandInteraction) => boolean | Promise<boolean>) => boolean | Promise<boolean>
+				};
+
+				let command = {
+					command: commandData.command,
+					callback: commandData.callback || commandData.default,
+					check: commandData.check,
+				} as Command;
+
+				this.registerCommand(command);
+			}
+		} catch (e) {
+			this._error(`Unable to load commands from ${commandPath}`);
+			this._error(e);
+		}
+	}
+
+	/**
+	 * @param command The command to register
+	 *
+	 * @returns The bot instance for chaining
+	 */
+	registerCommand(command: Command | Subcommands) {
+		let registered: SlashCommandBuilder;
+		if (command.hasOwnProperty("command")) {
+			// It's just a normal command
+			command = command as Command;
+			registered = command.command;
+			this.commands.set(command.command.name, {command: command.command, callback: command.callback, check:
+					(interaction => {
+						if (command.check) return command.check(interaction, this.config.defaultCheck);
+						return this.config.defaultCheck(interaction);
+					})
+			});
+		} else {
+			// It's a top-level subcommand
+			command = command as Subcommands;
+			registered = new SlashCommandBuilder().setName(command.name).setDescription(command.description);
+			let defaultCheck = (interaction => {
+				if (command.check) return command.check(interaction, this.config.defaultCheck);
+				return this.config.defaultCheck(interaction);
+			});
+			if (command.commands !== undefined) for (let subcommand of command.commands) {
+				this.commands.set(command.name + " " + subcommand.command.name, {command: subcommand.command, callback: subcommand.callback, check: (interaction => {
+						if (subcommand.check) return subcommand.check(interaction, defaultCheck);
+						return defaultCheck(interaction);
+					})
+				});
+				registered.addSubcommand(subcommand.command);
+				// FIXME: Getting 'Expected to receive a b builder, got b instead.' when running with DN Poster (i.e. just normal subcommands). I'm pretty sure that the builders I'm providing are actually builders too
+			}
+			if (command.groups !== undefined) for (let group of command.groups) {
+				let registeredGroup = new SlashCommandSubcommandGroupBuilder().setName(group.name).setDescription(group.description);
+				let defaultGroupCheck = (interaction => {
+					if (group.check) return group.check(interaction, defaultCheck);
+					return defaultCheck(interaction);
+				});
+				if (command.commands !== undefined) for (let subcommand of command.commands) {
+					registeredGroup.addSubcommand(subcommand.command);
+					this.commands.set(command.name + " " + group.name + " " + subcommand.command.name, {command: subcommand.command, callback: subcommand.callback, check: (interaction => {
+							if (subcommand.check) return subcommand.check(interaction, defaultGroupCheck);
+							return defaultGroupCheck(interaction);
+						})
+					});
+				}
+				registered.addSubcommandGroup(registeredGroup);
+			}
+		}
+
+		this._HTTPRegisterCommands(registered).then();
+
+		return this;
+	}
+
+	async _HTTPRegisterCommands(command: SlashCommandBuilder | SlashCommandBuilder[]) {
+		try {
+			let commands = Array.isArray(command) ? command.map(c => c.toJSON()) : [command.toJSON()];
 
 			this._log(`Registering ${commands.length} command${commands.length !== 1 ? "s" : ""}`);
 			await this.waitForReady();
