@@ -10,6 +10,8 @@ export interface HaikuConfig {
     devguild?: string;
     dev?: boolean;
     restrictToOwner?: boolean;
+    textCommands?: boolean;
+    prefix?: string | string[];
     defaultCheck?: (interaction: CommandInteraction) => Promise<boolean> | boolean;
     //defaultCommands?: DEFAULT_COMMANDS[];
 }

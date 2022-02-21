@@ -22,6 +22,10 @@ interface _Command extends BaseCommand {
 	check: (interaction: CommandInteraction) => boolean | Promise<boolean>;
 }
 
+const commandTypesByLevel = [SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandBuilder];
+const commandGroupTypesByLevel = [SlashCommandBuilder, SlashCommandSubcommandGroupBuilder];
+const hasMetaByLevel = [false, true, true];
+
 /**
  * @class HaikuClient
  * @extends Client
@@ -76,13 +80,15 @@ export class HaikuClient extends Client {
 				scheduledEvent: "https://discord.com/events"
 			}
 		} as ClientOptions;
-		let defaultConfig = {
+		let defaultConfig: HaikuConfig = {
 			token: "",
 			dev: false,
 			owners: [],
 			devtoken: "",
 			devguild: "",
 			activities: [],
+			textCommands: false,
+			prefix: "!",
 			defaultCheck: () => true,
 			//defaultCommands: []
 		};
@@ -214,130 +220,32 @@ export class HaikuClient extends Client {
 		});
 	}
 
+	
 	/**
 	 * @param commandPath The path to the folder containing the commands
 	 */
-	async registerCommandsIn(commandPath: string) {
-		if (!commandPath.startsWith("/")) commandPath = `${path.dirname(getCaller())}/${commandPath}`;
-		commandPath = path.normalize(commandPath);
-		try {
-			const commandFiles = fs.readdirSync(commandPath, {withFileTypes: true}).filter(
-				file => file.name.endsWith('.js')
-					|| file.name.endsWith('.mjs')
-					|| file.name.endsWith('.cjs')
-					|| file.isDirectory());
-			for (const topLevelFile of commandFiles) {
-				if (topLevelFile.isDirectory()) {
-					let command = {} as Subcommands;
-					// Import all subcommands in the directory
-					const subFiles = fs.readdirSync(`${commandPath}/${topLevelFile.name}`, {withFileTypes: true}).filter(
-						file => file.name.endsWith('.js')
-							|| file.name.endsWith('.mjs')
-							|| file.name.endsWith('.cjs')
-							|| file.isDirectory());
+	async registerCommandsIn(commandPath: string, level = 0) {
+		let files = fs.readdirSync(commandPath, { withFileTypes: true });
 
-					let level1Subcommands: Subcommand[] = [];
-					let subcommandGroups: SubcommandGroup[] = [];
+		let commandBuilderType = commandTypesByLevel[level];
+		let commandGroupType = commandGroupTypesByLevel[level];
+		let hasMeta = hasMetaByLevel[level];
 
-					for (const subFile of subFiles) {
-						if (subFile.isDirectory()) {
-							// Import all subcommands in the directory
-							const subSubFiles = fs.readdirSync(`${commandPath}/${topLevelFile.name}/${subFile.name}`, {withFileTypes: true}).filter(
-								file => file.name.endsWith('.js')
-									|| file.name.endsWith('.mjs')
-									|| file.name.endsWith('.cjs'));
-
-							let level2Subcommands: Subcommand[] = [];
-
-							for (const subSubFile of subSubFiles) {
-								const commandData = await import(`${commandPath}/${topLevelFile.name}/${subFile.name}/${subSubFile.name}`) as {
-									command: (builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder,
-									default?: (interaction: CommandInteraction) => any | Promise<any>,
-									callback?: (interaction: CommandInteraction) => any | Promise<any>,
-									check?: (interaction: CommandInteraction, defaultCheck: (interaction: CommandInteraction) => boolean | Promise<boolean>) => boolean | Promise<boolean>
-								};
-								level2Subcommands.push({
-									command: commandData.command,
-									callback: commandData.callback || commandData.default,
-									check: commandData.check,
-								});
-							}
-
-							let group = {
-								commands: level2Subcommands,
-							} as SubcommandGroup;
-
-							try {
-								const meta = await import(`${commandPath}/${topLevelFile.name}/${subFile.name}/meta.json`, {assert: {type: "json"}}) as { name: string, description: string, defaultPermission: boolean };
-								group.name = (meta.name ?? subFile.name).toLowerCase();
-								group.description = meta.description ?? "No description";
-								// group.defaultPermission = (meta.defaultPermission ?? true); // TODO: Implement default permissions
-							} catch (e) {
-								this._warn(`"No meta.json found for command group ${commandPath}/${topLevelFile.name}/${subFile.name}/ or reading meta.json failed: ${e}`);
-								group.name = subFile.name.toLowerCase();
-								group.description = "No description";
-							}
-
-							subcommandGroups.push(group);
-
-							continue;
-						}
-
-						const commandData = await import(`${commandPath}/${topLevelFile.name}/${subFile.name}`) as {
-							command: (builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder,
-							default?: (interaction: CommandInteraction) => any | Promise<any>,
-							callback?: (interaction: CommandInteraction) => any | Promise<any>,
-							check?: (interaction: CommandInteraction, defaultCheck: (interaction: CommandInteraction) => boolean | Promise<boolean>) => boolean | Promise<boolean>
-						};
-
-						let subcommand = {
-							command: commandData.command,
-							callback: commandData.callback || commandData.default,
-							check: commandData.check,
-						} as Subcommand;
-
-						level1Subcommands.push(subcommand);
-					}
-
-					try {
-						const meta = await import(`${commandPath}/${topLevelFile.name}/meta.json`, {assert: {type: "json"}}) as { name: string, description: string, defaultPermission: boolean };
-						command.name = (meta.name ?? topLevelFile.name).toLowerCase();
-						command.description = meta.description ?? "No description";
-						// command.defaultPermission = (meta.defaultPermission ?? true); // TODO: Implement default permissions
-					} catch (e) {
-						this._warn(`"No meta.json found for command group ${commandPath}/${topLevelFile.name}/ or reading meta.json failed: ${e}`);
-						command.name = topLevelFile.name.toLowerCase();
-						command.description = "No description";
-					}
-
-					command.commands = level1Subcommands;
-					command.groups = subcommandGroups;
-					// TODO: Implement checks (possibly changing meta.json to _meta.js or similar?)
-
-					this.registerCommand(command);
-					this._log(`Registered command group ${commandPath}/${topLevelFile.name} (/${command.name})`);
-
+		for (let file of files) {
+			if (!file.isDirectory()) {
+				// if the regex ^_meta\.[mc]?js$ matches the file, it's a meta file
+				if (hasMeta && /^_meta\.[mc]?js$/.test(file.name)) {
+					// import the file and get the command metadata
+					let { name, description, aliases, check } = await import(path.join(commandPath, file.name));
 					continue;
 				}
-
-				const commandData = await import(`${commandPath}/${topLevelFile.name}`) as {
-					command: SlashCommandBuilder,
-					default?: (interaction: CommandInteraction) => any | Promise<any>,
-					callback?: (interaction: CommandInteraction) => any | Promise<any>,
-					check?: (interaction: CommandInteraction, defaultCheck: (interaction: CommandInteraction) => boolean | Promise<boolean>) => boolean | Promise<boolean>
-				};
-
-				let command = {
-					command: commandData.command,
-					callback: commandData.callback || commandData.default,
-					check: commandData.check,
-				} as Command;
-
-				this.registerCommand(command);
+				if (commandBuilderType === undefined) continue;
+				
+				let { command,  } = await import(path.join(commandPath, file.name));
+				
+			} else {
+				if (commandGroupType === undefined) continue;
 			}
-		} catch (e) {
-			this._error(`Unable to load commands from ${commandPath}`);
-			this._error(e);
 		}
 	}
 
@@ -347,56 +255,7 @@ export class HaikuClient extends Client {
 	 * @returns The bot instance for chaining
 	 */
 	registerCommand(command: Command | Subcommands) {
-		let registered: SlashCommandBuilder;
-		if (command.hasOwnProperty("command")) {
-			// It's just a normal command
-			command = command as Command;
-			registered = command.command;
-			this.commands.set(command.command.name, {command: command.command, callback: command.callback, check:
-					(interaction => {
-						if (command.check) return command.check(interaction, this.config.defaultCheck);
-						return this.config.defaultCheck(interaction);
-					})
-			});
-		} else {
-			// It's a top-level subcommand
-			command = command as Subcommands;
-			registered = new SlashCommandBuilder().setName(command.name).setDescription(command.description);
-			let defaultCheck = (interaction => {
-				if (command.check) return command.check(interaction, this.config.defaultCheck);
-				return this.config.defaultCheck(interaction);
-			});
-			if (command.commands !== undefined) for (let subcommand of command.commands) {
-				let builder = subcommand.command(new SlashCommandSubcommandBuilder());
-				this.commands.set(command.name + " " + builder.name, {command: subcommand.command, callback: subcommand.callback, check: (interaction => {
-						if (subcommand.check) return subcommand.check(interaction, defaultCheck);
-						return defaultCheck(interaction);
-					})
-				});
-				console.log("Registering command " + command.name + " " + subcommand.command.name);
-				registered.addSubcommand(builder);
-				// FIXME: Getting 'Expected to receive a b builder, got b instead.' when running with DN Poster (i.e. just normal subcommands). I'm pretty sure that the builders I'm providing are actually builders too
-			}
-			if (command.groups !== undefined) for (let group of command.groups) {
-				let registeredGroup = new SlashCommandSubcommandGroupBuilder().setName(group.name).setDescription(group.description);
-				let defaultGroupCheck = (interaction => {
-					if (group.check) return group.check(interaction, defaultCheck);
-					return defaultCheck(interaction);
-				});
-				if (command.commands !== undefined) for (let subcommand of command.commands) {
-					registeredGroup.addSubcommand(subcommand.command);
-					this.commands.set(command.name + " " + group.name + " " + subcommand.command.name, {command: subcommand.command, callback: subcommand.callback, check: (interaction => {
-							if (subcommand.check) return subcommand.check(interaction, defaultGroupCheck);
-							return defaultGroupCheck(interaction);
-						})
-					});
-				}
-				registered.addSubcommandGroup(registeredGroup);
-			}
-		}
-
-		this._HTTPRegisterCommands(registered).then();
-
+		
 		return this;
 	}
 
