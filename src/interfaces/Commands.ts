@@ -2,7 +2,7 @@ import {SlashCommandBuilder, SlashCommandSubcommandBuilder} from "@discordjs/bui
 import {CommandInteraction} from "discord.js";
 
 export interface BaseCommand {
-	command: SlashCommandBuilder | SlashCommandSubcommandBuilder;
+	command: SlashCommandBuilder | ((builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder);
 	callback: (interaction: CommandInteraction) => any | Promise<any>;
 	check?: (interaction: CommandInteraction, defaultCheck: (interaction: CommandInteraction) => boolean | Promise<boolean>) => boolean | Promise<boolean>;
 }
@@ -12,7 +12,7 @@ export interface Command extends BaseCommand {
 }
 
 export interface Subcommand extends BaseCommand {
-	command: SlashCommandSubcommandBuilder;
+	command: (builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder;
 }
 
 export interface BaseSubcommandGroup {

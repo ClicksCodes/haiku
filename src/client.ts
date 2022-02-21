@@ -251,7 +251,7 @@ export class HaikuClient extends Client {
 
 							for (const subSubFile of subSubFiles) {
 								const commandData = await import(`${commandPath}/${topLevelFile.name}/${subFile.name}/${subSubFile.name}`) as {
-									command: SlashCommandSubcommandBuilder,
+									command: (builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder,
 									default?: (interaction: CommandInteraction) => any | Promise<any>,
 									callback?: (interaction: CommandInteraction) => any | Promise<any>,
 									check?: (interaction: CommandInteraction, defaultCheck: (interaction: CommandInteraction) => boolean | Promise<boolean>) => boolean | Promise<boolean>
@@ -284,7 +284,7 @@ export class HaikuClient extends Client {
 						}
 
 						const commandData = await import(`${commandPath}/${topLevelFile.name}/${subFile.name}`) as {
-							command: SlashCommandSubcommandBuilder,
+							command: (builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder,
 							default?: (interaction: CommandInteraction) => any | Promise<any>,
 							callback?: (interaction: CommandInteraction) => any | Promise<any>,
 							check?: (interaction: CommandInteraction, defaultCheck: (interaction: CommandInteraction) => boolean | Promise<boolean>) => boolean | Promise<boolean>
@@ -367,12 +367,14 @@ export class HaikuClient extends Client {
 				return this.config.defaultCheck(interaction);
 			});
 			if (command.commands !== undefined) for (let subcommand of command.commands) {
-				this.commands.set(command.name + " " + subcommand.command.name, {command: subcommand.command, callback: subcommand.callback, check: (interaction => {
+				let builder = subcommand.command(new SlashCommandSubcommandBuilder());
+				this.commands.set(command.name + " " + builder.name, {command: subcommand.command, callback: subcommand.callback, check: (interaction => {
 						if (subcommand.check) return subcommand.check(interaction, defaultCheck);
 						return defaultCheck(interaction);
 					})
 				});
-				registered.addSubcommand(subcommand.command);
+				console.log("Registering command " + command.name + " " + subcommand.command.name);
+				registered.addSubcommand(builder);
 				// FIXME: Getting 'Expected to receive a b builder, got b instead.' when running with DN Poster (i.e. just normal subcommands). I'm pretty sure that the builders I'm providing are actually builders too
 			}
 			if (command.groups !== undefined) for (let group of command.groups) {
