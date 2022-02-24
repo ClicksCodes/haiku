@@ -1,17 +1,21 @@
 import {CommandInteraction} from "discord.js";
+import {WrappedCheck} from "./Commands";
 
 type DEFAULT_COMMANDS = "SENRYU";
 
 export interface HaikuConfig {
     token: string;
-    activities?: string[];
-    owners?: string[];
-    devtoken?: string;
-    devguild?: string;
-    dev?: boolean;
-    restrictToOwner?: boolean;
-    textCommands?: boolean;
+    developmentToken?: string;
+
+    ownerIDs?: string[];
+
+    managementGuildID?: string;
+    developmentGuildID?: string;
+
+    enableDevelopment?: boolean;
+
+    enableTextCommands?: boolean;
     prefix?: string | string[];
-    defaultCheck?: (interaction: CommandInteraction) => Promise<boolean> | boolean;
-    //defaultCommands?: DEFAULT_COMMANDS[];
+
+    defaultCheck?: WrappedCheck;
 }

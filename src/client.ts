@@ -7,20 +7,16 @@ import {
 import { REST } from "@discordjs/rest";
 import chalk from "chalk";
 import { Routes } from "discord-api-types/v9";
-import { Client, ClientOptions, Collection, CommandInteraction, Interaction, User } from "discord.js";
+import { Client, ClientOptions, Collection, CommandInteraction, User } from "discord.js";
 import cron from "node-cron";
 import * as SENRYU from "./commands/senryu.js";
 import { HaikuConfig } from "./interfaces/HaikuConfig";
-import {BaseCommand, Command, Subcommand, SubcommandGroup, Subcommands} from "./interfaces/Commands";
+import {CommandLevel, BaseCommand, TopLevelCommands, wrapDefaultCheck, SubcommandBuilderMethod, ResolvedSubcommand} from "./interfaces/Commands.js";
 import fs from "fs";
 import getCaller from "./utils/getCaller.js";
 import * as path from "path";
 
 const { schedule } = cron;
-
-interface _Command extends BaseCommand {
-	check: (interaction: CommandInteraction) => boolean | Promise<boolean>;
-}
 
 const commandTypesByLevel = [SlashCommandBuilder, SlashCommandSubcommandBuilder, SlashCommandSubcommandBuilder];
 const commandGroupTypesByLevel = [SlashCommandBuilder, SlashCommandSubcommandGroupBuilder];
@@ -37,7 +33,7 @@ export class HaikuClient extends Client {
 	senryu: SENRYU.Senryu;
 	ready: boolean;
 	tasksToRun: cron.ScheduledTask[];
-	commands: Collection<string, _Command>;
+	commands: Collection<string, BaseCommand>;
 
 	/**
 	 * @param ClientOptions options
@@ -81,16 +77,14 @@ export class HaikuClient extends Client {
 			}
 		} as ClientOptions;
 		let defaultConfig: HaikuConfig = {
-			token: "",
-			dev: false,
-			owners: [],
-			devtoken: "",
-			devguild: "",
-			activities: [],
-			textCommands: false,
-			prefix: "!",
-			defaultCheck: () => true,
-			//defaultCommands: []
+			token: null,
+
+			ownerIDs: null,
+			enableDevelopment: false,
+		
+			enableTextCommands: false,
+
+			defaultCheck: async () => true,
 		};
 		Object.assign(superOptions, ClientOptions);
 		Object.assign(defaultConfig, config);
@@ -109,7 +103,7 @@ export class HaikuClient extends Client {
 		this.once("ready", async () => {
 			try {
 				await this.application.fetch();
-				this.config.owners ??= this.application.owner instanceof User ? [this.application.owner.id] : this.application.owner.members.map(owner => owner.id);
+				this.config.ownerIDs ??= this.application.owner instanceof User ? [this.application.owner.id] : this.application.owner.members.map(owner => owner.id);
 			} catch (e) {
 				this._error(e);
 			}
@@ -134,7 +128,17 @@ export class HaikuClient extends Client {
 			if (!this.ready) return;
 			if (!interaction.isCommand()) return;
 
-			const command = this.commands.get(interaction.commandName);
+			let commandName = interaction.commandName;
+			let groupName = interaction.options.getSubcommandGroup(false);
+			let subcommandName = interaction.options.getSubcommand(false);
+
+			let fullCommandName = commandName + (groupName ? ` ${groupName}` : "") + (subcommandName ? ` ${subcommandName}` : "");
+
+			console.log(`${interaction.user.tag} (${interaction.user.id}) ran command ${fullCommandName}`);
+			console.log(this.commands.toJSON());
+			console.log(this.commands.get(fullCommandName));
+
+			const command = this.commands.get(fullCommandName);
 			if (!command) return;
 
 			const sendErrorMessage = async (message: string) => {
@@ -192,7 +196,7 @@ export class HaikuClient extends Client {
 	}
 
 	isOwner(id: string): boolean {
-		return this.config.owners.includes(id);
+		return this.config.ownerIDs.includes(id);
 	}
 
 	async waitForReady() {
@@ -220,43 +224,153 @@ export class HaikuClient extends Client {
 		});
 	}
 
-	
+
 	/**
 	 * @param commandPath The path to the folder containing the commands
 	 */
-	async registerCommandsIn(commandPath: string, level = 0) {
-		let files = fs.readdirSync(commandPath, { withFileTypes: true });
+	async registerCommandsIn(commandPath: string) {
+		if (!commandPath.startsWith("/")) commandPath = path.normalize(`${path.dirname(getCaller())}/${commandPath}`);
+
+		return this._registerCommandsIn(commandPath, 0, this.config.defaultCheck);
+	}
+
+
+	async _registerCommandsIn(commandPath: string, level = 0, defaultCheck = null): Promise<CommandLevel> {
+		let files = fs.readdirSync(commandPath, { withFileTypes: true }).filter(file => 
+            file.name.endsWith(".js") || 
+			file.name.endsWith(".mjs") || 
+			file.name.endsWith(".cjs") || 
+			file.isDirectory());
+
+		if (files.length === 0) {
+			this._log(`No commands found in ${commandPath}`);
+			return;
+		};
 
 		let commandBuilderType = commandTypesByLevel[level];
 		let commandGroupType = commandGroupTypesByLevel[level];
 		let hasMeta = hasMetaByLevel[level];
 
+		let commands: CommandLevel & {metaFilled: boolean} = {
+			commands: [],
+			groups: [],
+			level: level,
+			
+			name: path.basename(commandPath),
+			description: "No description",
+			aliases: [],
+			check: async (interaction: CommandInteraction) => await defaultCheck(interaction),
+
+			metaFilled: false,
+		};
+
+
+		console.log(`Level ${level}'s ${commandPath} has basename ${path.basename(commandPath)}`);
+
 		for (let file of files) {
 			if (!file.isDirectory()) {
 				// if the regex ^_meta\.[mc]?js$ matches the file, it's a meta file
 				if (hasMeta && /^_meta\.[mc]?js$/.test(file.name)) {
+					if (commands.metaFilled) throw new Error(`${commandPath} has multiple meta files; only one is allowed`);
 					// import the file and get the command metadata
 					let { name, description, aliases, check } = await import(path.join(commandPath, file.name));
+
+					commands.name = name;
+					commands.description = description;
+					commands.aliases = aliases;
+					commands.check = check;
+
+					commands.metaFilled = true;
+
 					continue;
 				}
 				if (commandBuilderType === undefined) continue;
-				
-				let { command,  } = await import(path.join(commandPath, file.name));
-				
+
+				let { command, check, callback, aliases, autocompleter } = await import(path.join(commandPath, file.name));
+
+				commands.commands.push(
+					{
+						command: command,
+						check: wrapDefaultCheck(check, defaultCheck),
+						callback: callback,
+						aliases: aliases,
+						autocompleter: autocompleter
+					}
+				)
+
 			} else {
+				console.log(`Found directory ${file.name} in level ${level}; the group type is ${commandGroupType}`);
+
 				if (commandGroupType === undefined) continue;
+
+				let group = await this._registerCommandsIn(path.join(commandPath, file.name), level + 1)
+
+				if (group === undefined) continue;
+
+				commands.groups.push(
+					group
+				);
 			}
 		}
+
+		if (commands.level === 0) {
+			await this.registerCommands(commands as TopLevelCommands);
+		}
+
+		return commands;
 	}
 
 	/**
-	 * @param command The command to register
-	 *
-	 * @returns The bot instance for chaining
+	 * @param commands The commands to register
 	 */
-	registerCommand(command: Command | Subcommands) {
+	async registerCommands(commands: TopLevelCommands) {
+		let registered: SlashCommandBuilder[] = [];
+
+		for (let command of commands.commands) {
+			this.commands.set(command.command.name, command);
+			registered.push(command.command as SlashCommandBuilder);
+		}
+
+		for (let group of commands.groups) {
+			console.log("Got group " + group.name)
+
+			let command = new SlashCommandBuilder()
+				.setName(group.name)
+				.setDescription(group.description)
+
+			for (let subcommand of group.commands) {
+				let resolvedSubcommand: ResolvedSubcommand = {
+					...subcommand,
+					command: (subcommand.command as SubcommandBuilderMethod)(new SlashCommandSubcommandBuilder())
+				}
+				this.commands.set(`${group.name} ${resolvedSubcommand.command.name}`, resolvedSubcommand);
+				command.addSubcommand(resolvedSubcommand.command);
+			}
+
+			for (let subgroup of commands.groups) {
+				console.log("Got subgroup of " + group.name + ": " + subgroup.name)
+
+				let groupBuilder = new SlashCommandSubcommandGroupBuilder()
+					.setName(subgroup.name)
+					.setDescription(subgroup.description);
+
+				for (let subcommand of subgroup.commands) {
+					let resolvedSubcommand: ResolvedSubcommand = {
+						...subcommand,
+						command: (subcommand.command as SubcommandBuilderMethod)(new SlashCommandSubcommandBuilder())
+					}
+	
+					this.commands.set(`${group.name} ${subgroup.name} ${resolvedSubcommand.command.name}`, subcommand);
+					groupBuilder.addSubcommand(resolvedSubcommand.command);
+				}
+
+				command.addSubcommandGroup(groupBuilder);
+			}
+
+			registered.push(command);
+		}
 		
-		return this;
+		this._HTTPRegisterCommands(registered);
 	}
 
 	async _HTTPRegisterCommands(command: SlashCommandBuilder | SlashCommandBuilder[]) {
@@ -269,7 +383,7 @@ export class HaikuClient extends Client {
 			const rest = new REST({ version: '9' }).setToken(this.token);
 
 			await rest.put(
-				this.config.dev ? Routes.applicationGuildCommands(this.user.id, this.config.devguild) : Routes.applicationCommands(this.user.id),
+				this.config.enableDevelopment ? Routes.applicationGuildCommands(this.user.id, this.config.developmentGuildID) : Routes.applicationCommands(this.user.id),
 				{ body: commands }
 			);
 			this._log('Successfully registered all commands');
@@ -317,15 +431,11 @@ export class HaikuClient extends Client {
 		return this;
 	}
 
-	/**
-	 * @param token The token to use to login
-	 * @description If no token is provided, it will attempt to use the tokens in the config
-	 */
-	login(token?: string): Promise<string> {
+	_getToken(token?: string): string {
 		if (!token) {
 			this._warn("No token provided, trying config tokens instead");
-			if (this.config.dev) {
-				token = this.config.devtoken;
+			if (this.config.enableDevelopment) {
+				token = this.config.developmentToken;
 				if (!token) {
 					this._error("Dev token not provided")
 					return process.exit(1);
@@ -334,16 +444,27 @@ export class HaikuClient extends Client {
 				token = this.config.token;
 				if (!token) {
 					this._error("Main token not provided")
-					this._notice("Attempting log in with dev token");
-					token = this.config.devtoken;
+					this._notice("Attempting log in with development token");
+					token = this.config.developmentToken;
 					if (!token) throw new Error("No tokens provided");
 				}
 			}
 		}
 
-		return super.login(token);
+		return token;
 	}
 
+	/**
+	 * @param token The token to use to login
+	 * @description If no token is provided, it will attempt to use the tokens in the config
+	 */
+	async login(token?: string): Promise<string> {
+		token = this._getToken(token);
+
+		this._log("Logging in");
+
+		return await super.login(token);
+	}
 }
 
 export default HaikuClient;

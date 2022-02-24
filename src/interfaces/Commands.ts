@@ -1,31 +1,56 @@
 import {SlashCommandBuilder, SlashCommandSubcommandBuilder} from "@discordjs/builders";
-import {CommandInteraction} from "discord.js";
+import {ApplicationCommandOptionChoice, AutocompleteInteraction, Base, CommandInteraction} from "discord.js";
 
-export interface BaseCommand {
-	command: SlashCommandBuilder | ((builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder);
+export interface BaseCommandPart {
+	check: WrappedCheck;
+	aliases: string[];
+}
+
+export interface BaseCommand extends BaseCommandPart {
+	command: SlashCommandBuilder | SubcommandBuilderMethod | SlashCommandSubcommandBuilder;	
 	callback: (interaction: CommandInteraction) => any | Promise<any>;
-	check?: (interaction: CommandInteraction, defaultCheck: (interaction: CommandInteraction) => boolean | Promise<boolean>) => boolean | Promise<boolean>;
+	autocompleter: (interaction: AutocompleteInteraction) => ApplicationCommandOptionChoice[] | Promise<ApplicationCommandOptionChoice[]> | any;
 }
 
 export interface Command extends BaseCommand {
-	command: SlashCommandBuilder;
+	command: SlashCommandBuilder
+}
+
+export interface SubcommandBuilderMethod {
+	(builder: SlashCommandSubcommandBuilder): SlashCommandSubcommandBuilder;
 }
 
 export interface Subcommand extends BaseCommand {
-	command: (builder: SlashCommandSubcommandBuilder) => SlashCommandSubcommandBuilder;
+	command: SubcommandBuilderMethod;
 }
 
-export interface BaseSubcommandGroup {
-	name: string;
-	description: string;
-	commands?: Subcommand[];
-	check?: (interaction: CommandInteraction, defaultCheck: (interaction: CommandInteraction) => boolean | Promise<boolean>) => boolean | Promise<boolean>;
+export interface ResolvedSubcommand extends BaseCommand {
+	command: SlashCommandSubcommandBuilder;
 }
 
-export interface SubcommandGroup extends BaseSubcommandGroup {
-	commands: Subcommand[];
+export interface CommandLevel extends BaseCommandPart {
+	commands: Command[] | Subcommand[];
+	groups: CommandLevel[];
+	level: number;	
+
+	name?: string;
+	description?: string;
 }
 
-export interface Subcommands extends BaseSubcommandGroup {
-	groups?: SubcommandGroup[];
+export interface TopLevelCommands extends CommandLevel {
+	level: 0;
+}
+
+export interface Check {
+	(interaction: CommandInteraction, defaultCheck: WrappedCheck): boolean | Promise<boolean>
+}
+
+export interface WrappedCheck extends Check {
+	(interaction: CommandInteraction): Promise<boolean>
+}
+
+export function wrapDefaultCheck (check: Check, defaultCheck: WrappedCheck) : WrappedCheck {
+	return async (interaction: CommandInteraction) => {
+		return await check(interaction, defaultCheck);
+	}
 }
