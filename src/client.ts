@@ -134,10 +134,6 @@ export class HaikuClient extends Client {
 
 			let fullCommandName = commandName + (groupName ? ` ${groupName}` : "") + (subcommandName ? ` ${subcommandName}` : "");
 
-			console.log(`${interaction.user.tag} (${interaction.user.id}) ran command ${fullCommandName}`);
-			console.log(this.commands.toJSON());
-			console.log(this.commands.get(fullCommandName));
-
 			const command = this.commands.get(fullCommandName);
 			if (!command) return;
 
@@ -264,9 +260,6 @@ export class HaikuClient extends Client {
 			metaFilled: false,
 		};
 
-
-		console.log(`Level ${level}'s ${commandPath} has basename ${path.basename(commandPath)}`);
-
 		for (let file of files) {
 			if (!file.isDirectory()) {
 				// if the regex ^_meta\.[mc]?js$ matches the file, it's a meta file
@@ -299,8 +292,6 @@ export class HaikuClient extends Client {
 				)
 
 			} else {
-				console.log(`Found directory ${file.name} in level ${level}; the group type is ${commandGroupType}`);
-
 				if (commandGroupType === undefined) continue;
 
 				let group = await this._registerCommandsIn(path.join(commandPath, file.name), level + 1)
@@ -332,8 +323,6 @@ export class HaikuClient extends Client {
 		}
 
 		for (let group of commands.groups) {
-			console.log("Got group " + group.name)
-
 			let command = new SlashCommandBuilder()
 				.setName(group.name)
 				.setDescription(group.description)
@@ -347,9 +336,7 @@ export class HaikuClient extends Client {
 				command.addSubcommand(resolvedSubcommand.command);
 			}
 
-			for (let subgroup of commands.groups) {
-				console.log("Got subgroup of " + group.name + ": " + subgroup.name)
-
+			for (let subgroup of group.groups) {
 				let groupBuilder = new SlashCommandSubcommandGroupBuilder()
 					.setName(subgroup.name)
 					.setDescription(subgroup.description);
