@@ -25,7 +25,7 @@ export class Senryu {
     //TODO: Make this work like jsk py
     async js(interaction: HaikuCommandInteraction) {
         if(!this.JSShells.has(interaction.user.id)) {
-            
+
             let stdin = new Readable();
             let stdout = new Writable();
 

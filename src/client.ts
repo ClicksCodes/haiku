@@ -81,7 +81,7 @@ export class HaikuClient extends Client {
 
 			ownerIDs: null,
 			enableDevelopment: false,
-		
+
 			enableTextCommands: false,
 
 			defaultCheck: async () => true,
@@ -156,7 +156,7 @@ export class HaikuClient extends Client {
 					return await sendErrorMessage("You don't have permission to run this command");
 				}
 			} catch (error) {
-				return await sendErrorMessage(`It doesn't look like you can run that command right now: ${error}`);
+				return await sendErrorMessage(`It doesn't look like you can run that command right now:\n> ${error}`);
 			}
 
 			try {
