@@ -2,55 +2,55 @@ import {SlashCommandBuilder, SlashCommandSubcommandBuilder} from "@discordjs/bui
 import {ApplicationCommandOptionChoice, AutocompleteInteraction, Base, CommandInteraction} from "discord.js";
 
 export interface BaseCommandPart {
-	check: WrappedCheck;
-	aliases: string[];
+    check: WrappedCheck;
+    aliases: string[];
 }
 
 export interface BaseCommand extends BaseCommandPart {
-	command: SlashCommandBuilder | SubcommandBuilderMethod | SlashCommandSubcommandBuilder;	
-	callback: (interaction: CommandInteraction) => any | Promise<any>;
-	autocompleter: (interaction: AutocompleteInteraction) => ApplicationCommandOptionChoice[] | Promise<ApplicationCommandOptionChoice[]> | any;
+    command: SlashCommandBuilder | SubcommandBuilderMethod | SlashCommandSubcommandBuilder;    
+    callback: (interaction: CommandInteraction) => any | Promise<any>;
+    autocompleter: (interaction: AutocompleteInteraction) => ApplicationCommandOptionChoice[] | Promise<ApplicationCommandOptionChoice[]> | any;
 }
 
 export interface Command extends BaseCommand {
-	command: SlashCommandBuilder
+    command: SlashCommandBuilder
 }
 
 export interface SubcommandBuilderMethod {
-	(builder: SlashCommandSubcommandBuilder): SlashCommandSubcommandBuilder;
+    (builder: SlashCommandSubcommandBuilder): SlashCommandSubcommandBuilder;
 }
 
 export interface Subcommand extends BaseCommand {
-	command: SubcommandBuilderMethod;
+    command: SubcommandBuilderMethod;
 }
 
 export interface ResolvedSubcommand extends BaseCommand {
-	command: SlashCommandSubcommandBuilder;
+    command: SlashCommandSubcommandBuilder;
 }
 
 export interface CommandLevel extends BaseCommandPart {
-	commands: Command[] | Subcommand[];
-	groups: CommandLevel[];
-	level: number;	
+    commands: Command[] | Subcommand[];
+    groups: CommandLevel[];
+    level: number;    
 
-	name?: string;
-	description?: string;
+    name?: string;
+    description?: string;
 }
 
 export interface TopLevelCommands extends CommandLevel {
-	level: 0;
+    level: 0;
 }
 
 export interface Check {
-	(interaction: CommandInteraction, defaultCheck: WrappedCheck): boolean | Promise<boolean>
+    (interaction: CommandInteraction, defaultCheck: WrappedCheck): boolean | Promise<boolean>
 }
 
 export interface WrappedCheck extends Check {
-	(interaction: CommandInteraction): Promise<boolean>
+    (interaction: CommandInteraction): Promise<boolean>
 }
 
 export function wrapDefaultCheck (check: Check, defaultCheck: WrappedCheck) : WrappedCheck {
-	return async (interaction: CommandInteraction) => {
-		return await check(interaction, defaultCheck);
-	}
+    return async (interaction: CommandInteraction) => {
+        return await check(interaction, defaultCheck);
+    }
 }
