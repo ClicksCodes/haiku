@@ -5,9 +5,11 @@
         "sourceMap": true,
         "esModuleInterop": true,
         "moduleResolution": "Node",
-        "outDir": "./dist"
+        "outDir": "./dist",
+        "skipLibCheck": true
     },
     "include": [
         "src/**/*"
-    ]
+    ],
+    "exclude": ["node_modules/**/*"]
 }

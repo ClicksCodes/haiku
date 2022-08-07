@@ -1,5 +1,5 @@
 import {SlashCommandBuilder, SlashCommandSubcommandBuilder} from "@discordjs/builders";
-import {ApplicationCommandOptionChoice, AutocompleteInteraction, Base, CommandInteraction} from "discord.js";
+import {ApplicationCommandOptionChoiceData, AutocompleteInteraction, Base, CommandInteraction} from "discord.js";
 
 export interface BaseCommandPart {
     check: WrappedCheck;
@@ -7,9 +7,9 @@ export interface BaseCommandPart {
 }
 
 export interface BaseCommand extends BaseCommandPart {
-    command: SlashCommandBuilder | SubcommandBuilderMethod | SlashCommandSubcommandBuilder;    
+    command: SlashCommandBuilder | SubcommandBuilderMethod | SlashCommandSubcommandBuilder;
     callback: (interaction: CommandInteraction) => any | Promise<any>;
-    autocompleter: (interaction: AutocompleteInteraction) => ApplicationCommandOptionChoice[] | Promise<ApplicationCommandOptionChoice[]> | any;
+    autocompleter: (interaction: AutocompleteInteraction) => ApplicationCommandOptionChoiceData[] | Promise<ApplicationCommandOptionChoiceData[]> | any;
 }
 
 export interface Command extends BaseCommand {
@@ -31,7 +31,7 @@ export interface ResolvedSubcommand extends BaseCommand {
 export interface CommandLevel extends BaseCommandPart {
     commands: Command[] | Subcommand[];
     groups: CommandLevel[];
-    level: number;    
+    level: number;
 
     name?: string;
     description?: string;

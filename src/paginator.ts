@@ -90,7 +90,7 @@ export class HaikuPaginator {
         }
         let length = Math.min(endF, endS);
 
-        if (start != Math.min(length + start, this.description.length)) this._descriptionStartEndMemo[page] = [start, Math.min(length + start, this.description.length)];
+        if (start !== Math.min(length + start, this.description.length)) this._descriptionStartEndMemo[page] = [start, Math.min(length + start, this.description.length)];
 
         return [start, Math.min(length + start, this.description.length)]
     }

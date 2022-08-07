@@ -7,7 +7,7 @@ import {
 import { REST } from "@discordjs/rest";
 import chalk from "chalk";
 import { Routes } from "discord-api-types/v9";
-import { Client, ClientOptions, Collection, CommandInteraction, User } from "discord.js";
+import { Client, ClientOptions, Collection, CommandInteraction, Interaction, User } from "discord.js";
 import cron from "node-cron";
 import * as SENRYU from "./commands/senryu.js";
 import { HaikuConfig } from "./interfaces/HaikuConfig";
@@ -146,14 +146,17 @@ export class HaikuClient extends Client {
             const command = this.commands.get(fullCommandName);
             if (!command) return;
 
-            const sendErrorMessage = async (message: string) => {
+            const sendErrorMessage = async (error: Error) => {
+                if (this.listenerCount("commandError")) {
+                    return this.emit("commandError", interaction, error);
+                }
                 let method = (!interaction.deferred && !interaction.replied) ? interaction.reply.bind(interaction) : interaction.followUp.bind(interaction);
                 await method({
                     embeds: [
                         new Embed()
                             .setColor(0xff0000)
                             .setTitle("I couldn't run that command")
-                            .setDescription(message)
+                            .setDescription(error.message ?? error.toString())
                     ]
                 , ephemeral: true});
             }
@@ -162,18 +165,18 @@ export class HaikuClient extends Client {
                 let hasPermission = await command.check(interaction);
 
                 if (!hasPermission) {
-                    this.emit("commandError", interaction, new CheckFailedError("You don't have permission to run this command"));
+                    sendErrorMessage(new CheckFailedError("You don't have permission to run this command"));
                     return;
                 }
             } catch (error) {
-                this.emit("commandError", interaction, error);
+                sendErrorMessage(error);
                 return;
             }
             try {
                 await command.callback(interaction);
             } catch (error) {
                 this._error(error);
-                this.emit("commandError", interaction, error);
+                sendErrorMessage(error);
                 return;
             }
         });
@@ -236,7 +239,7 @@ export class HaikuClient extends Client {
      * @param commandPath The path to the folder containing the commands
      */
     async registerCommandsIn(commandPath: string) {
-        if (!commandPath.startsWith("/")) commandPath = path.normalize(`${path.dirname(getCaller())}/${commandPath}`);
+        if (!commandPath.startsWith("/")) commandPath = path.normalize(`${process.cwd()}/${commandPath}`);
 
         return this._registerCommandsIn(commandPath, 0, this.config.defaultCheck);
     }
@@ -392,7 +395,7 @@ export class HaikuClient extends Client {
     }
 
     async registerEventsIn(EventPath: string) {
-        if (!EventPath.startsWith("/")) EventPath = path.normalize(`${path.dirname(getCaller())}/${EventPath}`);
+        if (!EventPath.startsWith("/")) EventPath = path.normalize(`${process.cwd()}/${EventPath}`);
 
         return await this._registerEventsIn(EventPath)
 
@@ -431,7 +434,7 @@ export class HaikuClient extends Client {
      * @param callback The callback to execute when the command is called
      */
     registerTask(time: string | null | undefined, callback: (client: HaikuClient) => Promise<any>): HaikuClient {
-        if (callback == undefined) return this;
+        if (callback === undefined) return this;
 
         if (time === null || time === undefined) {
             callback(this).then().catch(this._error.bind(this));

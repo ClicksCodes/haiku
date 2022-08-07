@@ -33,7 +33,7 @@
     "ansi-styles": "^6.1.0",
     "chalk": "^5.0.0",
     "discord-api-types": "^0.26.1",
-    "discord.js": "^13.5.1",
+    "discord.js": "^13.8.0",
     "node-cron": "^3.0.0"
   },
   "devDependencies": {
