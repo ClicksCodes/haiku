@@ -13,7 +13,6 @@ import * as SENRYU from "./commands/senryu.js";
 import { HaikuConfig } from "./interfaces/HaikuConfig";
 import {CommandLevel, BaseCommand, TopLevelCommands, wrapDefaultCheck, SubcommandBuilderMethod, ResolvedSubcommand} from "./interfaces/Commands.js";
 import fs from "fs";
-import getCaller from "./utils/getCaller.js";
 import * as path from "path";
 
 const { schedule } = cron;
