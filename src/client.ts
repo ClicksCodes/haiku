@@ -114,6 +114,10 @@ export class HaikuClient extends Haiku.Client implements Haiku.Client {
                 this.on(name, callback)
             }
         }
+
+        if (contextMenu.length > 0) {
+
+        }
     }
 
 }
