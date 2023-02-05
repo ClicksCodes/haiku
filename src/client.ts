@@ -2,6 +2,7 @@ import { HaikuDB } from './database'
 import * as Haiku from './typings/index'
 import * as fs from 'fs';
 import {argv} from 'process'
+import { Render } from './renders'
 
 async function registerCommands(commandsPath: fs.PathLike) {
     const files = fs.readdirSync(commandsPath, { withFileTypes: true });
@@ -50,6 +51,7 @@ export class HaikuClient extends Haiku.Client implements Haiku.Client {
         this.database = new HaikuDB(options.mongoURL)
         this.commands = new Haiku.Collection()
         this.haikuOptions = options as Haiku.HaikuClientOptions
+        this.logger = new Render(this)
 
         super.on('ready', async () => {
             await this.registerAll(argv.includes('register')? true : false)
@@ -122,3 +124,4 @@ export class HaikuClient extends Haiku.Client implements Haiku.Client {
 
 }
 
+export { HaikuClient as Client }

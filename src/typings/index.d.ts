@@ -2,7 +2,7 @@ import * as Dis from 'discord.js'
 import { Collection, SlashCommandBuilder } from 'discord.js'
 import { MongoDatabase } from './database'
 import { PathLike } from 'fs'
-
+import { Renders } from './renders'
 
 declare module 'discord.js' {
 
@@ -33,9 +33,12 @@ declare module 'discord.js' {
     export interface Client {
         haikuOptions: HaikuClientOptions,
         database: MongoDatabase,
-        commands: Collection<string, CommandData>
-        registerAll(updateDiscord: boolean): Promise<void>
+        commands: Collection<string, CommandData>,
+        registerAll(updateDiscord: boolean): Promise<void>,
+        logger: Renders
     }
+
+    export type StatusColors = "Success" | "Danger" | "Warning"
 
     export type builderTypes = Dis.SlashCommandBuilder | Dis.SlashCommandSubcommandBuilder | Dis.SlashCommandSubcommandGroupBuilder;
     export type ctxMenuTypes = UserContextMenuCommandInteraction | MessageContextMenuCommandInteraction;
