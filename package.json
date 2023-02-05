@@ -1,0 +1,13 @@
+{
+  "name": "haiku",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@tsconfig/node18-strictest-esm": "^1.0.1",
+    "discord.js": "^14.7.1",
+    "mongodb": "^5.0.0",
+    "typescript": "^4.9.5"
+  },
+  "types": "src/typings"
+}
