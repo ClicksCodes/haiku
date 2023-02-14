@@ -4,6 +4,8 @@ export class commandBuilder<builderType extends Haiku.builderTypes, checkUserTyp
 implements Haiku.CommandBuilder<builderType, checkUserType> {
 
     data: Haiku.CommandData<builderType, checkUserType>;
+    subCommands: Haiku.CommandBuilder<Haiku.SlashCommandSubcommandBuilder, checkUserType>[] = [];
+    subCommandGroups: Haiku.CommandBuilder<Haiku.SlashCommandSubcommandGroupBuilder, checkUserType>[] = [];
 
     constructor(
         args: Haiku.CommandBuilderOptions<builderType, checkUserType> = {
@@ -91,6 +93,14 @@ implements Haiku.CommandBuilder<builderType, checkUserType> {
         return await this.data.execute(interaction);
     }
 
+    addSubCommand(subCommand: commandBuilder<Haiku.SlashCommandSubcommandBuilder, checkUserType>): this {
+        this.subCommands.push(subCommand);
+        return this;
+    }
 
+    addSubCommandGroup(subCommandGroup: commandBuilder<Haiku.SlashCommandSubcommandGroupBuilder, checkUserType>): this {
+        this.subCommandGroups.push(subCommandGroup);
+        return this;
+    }
 
 }

@@ -10,9 +10,10 @@
         "declarationMap": true,
         "resolveJsonModule": true,
         "moduleResolution": "NodeNext",
+        "experimentalDecorators": true,
         "skipLibCheck": true,
         "noImplicitReturns": false
     },
-    "include": ["src/**/*", "src/index.d.ts"],
+    "include": ["./**/*"],
     "exclude": ["src/Unfinished/**/*"]
 }

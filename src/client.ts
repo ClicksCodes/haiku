@@ -4,14 +4,13 @@ import * as fs from 'fs';
 import {argv} from 'process'
 import { Render } from './renders'
 
+type unprocessedCommand = Haiku.CommandData<Haiku.builderTypes, Haiku.UserTypes> | {name: string, children: unprocessedCommand[]}
+
 async function registerCommands(commandsPath: fs.PathLike) {
     const files = fs.readdirSync(commandsPath, { withFileTypes: true });
-    let unprocessed: Haiku.CommandData<Haiku.builderTypes, Haiku.UserTypes>[] = []
+    let unprocessed: unprocessedCommand[] = []
     for (const file of files) {
-        if(file.isDirectory()) {
-            const subCommands = await registerCommands(`${commandsPath}/${file.name}`)
-            unprocessed.push(...subCommands)
-        } else if(file.isFile() && file.name.endsWith('.js')) {
+        if(file.isDirectory() || file.name.endsWith('.js')) {
             const command = await import(`${commandsPath}/${file}`)
             unprocessed.push(command)
         }
@@ -31,7 +30,7 @@ async function registerEvents(eventsPath: fs.PathLike) {
     return unprocessed
 }
 
-function registerContextMenu(contextMenuPath: fs.PathLike): any {
+function registerContextMenu(contextMenuPath: fs.PathLike) {
     const files = fs.readdirSync(contextMenuPath, { withFileTypes: true });
     let unprocessed: Haiku.ContextMenuData[] = []
     for(const file of files) {
@@ -43,6 +42,7 @@ function registerContextMenu(contextMenuPath: fs.PathLike): any {
             unprocessed.push(...subCommands)
         }
     }
+    return unprocessed
 }
 
 export class HaikuClient extends Haiku.Client implements Haiku.Client {
@@ -93,7 +93,7 @@ export class HaikuClient extends Haiku.Client implements Haiku.Client {
     }
 
     override async registerAll(_updateDiscord: boolean = false): Promise<void> {
-        let commands: Haiku.CommandData<Haiku.builderTypes, Haiku.UserTypes>[] = [];
+        let commands: unprocessedCommand[] = [];
         let events: Haiku.EventsData[] = [];
         let contextMenu: Haiku.ContextMenuData[] = [];
         if(this.haikuOptions.commandsPath) {
