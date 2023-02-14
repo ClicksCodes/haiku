@@ -7,9 +7,9 @@ const colors = {
 }
 
 export class EmojiEmbed extends Haiku.EmbedBuilder {
+    readonly client: Haiku.Client<true>
     _title: string = ''
     _emoji: string = ''
-    client: Haiku.Client<true>
     description = ''
 
     constructor(client: Haiku.Client<true>, data?: Haiku.EmbedData | Haiku.APIEmbed) {
